@@ -6,7 +6,7 @@ import logfire
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 token = os.getenv("LOGFIRE_TOKEN")
 if not token:
     logfire.configure(send_to_logfire=False)
