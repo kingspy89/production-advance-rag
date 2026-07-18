@@ -1,0 +1,11 @@
+requirements.txt
+.venv
+.env
+app/
+ui/
+processed_data/
+DATA/
+*.py
+*.pdf
+*.png
+*.txt

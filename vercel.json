@@ -1,13 +1,16 @@
 {
   "version": 2,
-  "rewrites": [
+  "name": "enterprise-agentic-rag",
+  "builds": [
     {
-      "source": "/query",
-      "destination": "/api/index.py"
-    },
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
