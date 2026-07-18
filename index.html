@@ -551,13 +551,6 @@
             <button class="btn btn-primary" id="saveKeyBtn">Save API Key</button>
         </div>
 
-        <div class="card-box">
-            <div class="card-title">🌐 Backend Endpoint</div>
-            <div class="input-group">
-                <input type="text" id="backendUrlInput" class="input-field" value="" placeholder="Default (Current Server)">
-            </div>
-        </div>
-
         <button class="btn btn-secondary" id="clearChatBtn">
             <span>🗑️</span> Clear History
         </button>
@@ -613,7 +606,6 @@
         const toggleKeyVisibility = document.getElementById('toggleKeyVisibility');
         const saveKeyBtn = document.getElementById('saveKeyBtn');
         const keyStatusBadge = document.getElementById('keyStatusBadge');
-        const backendUrlInput = document.getElementById('backendUrlInput');
         const clearChatBtn = document.getElementById('clearChatBtn');
         const messagesContainer = document.getElementById('messagesContainer');
         const welcomeHero = document.getElementById('welcomeHero');
@@ -630,9 +622,6 @@
         apiKeyInput.value = savedKey;
         updateKeyBadge(savedKey);
 
-        const savedBackend = localStorage.getItem('user_backend_url') || '';
-        backendUrlInput.value = savedBackend;
-
         // Key visibility toggle
         toggleKeyVisibility.addEventListener('click', () => {
             apiKeyInput.type = apiKeyInput.type === 'password' ? 'text' : 'password';
@@ -644,10 +633,6 @@
             localStorage.setItem('user_api_key', val);
             updateKeyBadge(val);
             alert('API Key saved successfully!');
-        });
-
-        backendUrlInput.addEventListener('change', () => {
-            localStorage.setItem('user_backend_url', backendUrlInput.value.trim());
         });
 
         function updateKeyBadge(key) {
@@ -712,8 +697,7 @@
             appendBotPlaceholder(botMessageId);
 
             try {
-                const baseUrl = backendUrlInput.value.trim() || window.location.origin;
-                const endpoint = `${baseUrl.replace(/\/$/, '')}/query`;
+                const endpoint = '/query';
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
