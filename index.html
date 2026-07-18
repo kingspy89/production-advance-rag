@@ -697,7 +697,10 @@
             appendBotPlaceholder(botMessageId);
 
             try {
-                const endpoint = '/query';
+                let endpoint = '/query';
+                if (window.location.protocol === 'file:' || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8000') {
+                    endpoint = 'http://127.0.0.1:8000/query';
+                }
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
@@ -712,17 +715,33 @@
                     })
                 });
 
-                const data = await response.json();
+                const responseText = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    let errMsg = responseText;
+                    if (!responseText) {
+                        errMsg = "Vercel Serverless Function timed out or failed because heavy AI packages (Guardrails, Reranker) exceed Vercel's 250MB serverless limit.\n\n👉 **Recommended Solution**: Host the FastAPI backend on **Render.com** (free) and set the backend URL in your app!";
+                    }
+                    data = {
+                        answer: `❌ Vercel Backend Error (${response.status}):\n${errMsg}`,
+                        thought_process: ['Vercel Serverless Execution Error'],
+                        sources: []
+                    };
+                }
+
                 renderBotResponse(botMessageId, data);
 
             } catch (err) {
                 console.error(err);
                 renderBotResponse(botMessageId, {
-                    answer: `❌ Request Failed: ${err.message}. Make sure your backend API server is running.`,
+                    answer: `❌ Connection Failed: ${err.message}. Make sure your FastAPI backend API server is running on http://127.0.0.1:8000.`,
                     thought_process: ['Connection Error'],
                     sources: []
                 });
             }
+
         }
 
         function appendMessage(role, content) {
