@@ -551,10 +551,18 @@
             <button class="btn btn-primary" id="saveKeyBtn">Save API Key</button>
         </div>
 
+        <div class="card-box">
+            <div class="card-title">🌐 Backend URL (Optional)</div>
+            <div class="input-group">
+                <input type="text" id="backendUrlInput" class="input-field" value="" placeholder="e.g. https://...onrender.com">
+            </div>
+        </div>
+
         <button class="btn btn-secondary" id="clearChatBtn">
             <span>🗑️</span> Clear History
         </button>
     </aside>
+
 
 
     <!-- Main Chat Area -->
@@ -623,6 +631,15 @@
         const savedKey = localStorage.getItem('user_api_key') || '';
         apiKeyInput.value = savedKey;
         updateKeyBadge(savedKey);
+
+        const savedBackend = localStorage.getItem('user_backend_url') || '';
+        if (backendUrlInput) backendUrlInput.value = savedBackend;
+
+        if (backendUrlInput) {
+            backendUrlInput.addEventListener('change', () => {
+                localStorage.setItem('user_backend_url', backendUrlInput.value.trim());
+            });
+        }
 
         // Key visibility toggle
         toggleKeyVisibility.addEventListener('click', () => {
@@ -700,9 +717,13 @@
 
             try {
                 let endpoint = '/query';
-                if (window.location.protocol === 'file:' || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8000') {
+                const customBackend = (backendUrlInput && backendUrlInput.value.trim()) || localStorage.getItem('user_backend_url') || '';
+                if (customBackend) {
+                    endpoint = `${customBackend.replace(/\/$/, '')}/query`;
+                } else if (window.location.protocol === 'file:' || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port !== '8000') {
                     endpoint = 'http://127.0.0.1:8000/query';
                 }
+
 
                 const response = await fetch(endpoint, {
                     method: 'POST',
