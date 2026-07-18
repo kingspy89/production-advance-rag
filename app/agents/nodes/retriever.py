@@ -13,8 +13,10 @@ def retrieve_node(state: AgentState):
     # Standard Retrieval Logic
     with logfire.span("🔍 Knowledge Retrieval"):
         logfire.info(f"Searching Qdrant for: {query}")
-        raw_results = search_enterprise_knowledge(query, limit=15)
+        g_key = state.get("gemini_api_key") or state.get("api_key")
+        raw_results = search_enterprise_knowledge(query, limit=15, gemini_api_key=g_key)
         logfire.info(f"Retrieved {len(raw_results)} candidates from Vector DB")
+
         
         doc_contents = [doc['content'] for doc in raw_results]
         

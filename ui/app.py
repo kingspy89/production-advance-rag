@@ -53,6 +53,22 @@ if "messages" not in st.session_state:
 with st.sidebar:
     st.title("🧠 Agent OS")
     st.markdown("---")
+    
+    st.subheader("🔑 API Key Configuration")
+    user_api_key = st.text_input(
+        "Enter Groq / Gemini API Key",
+        type="password",
+        value=st.session_state.get("user_api_key", ""),
+        help="Paste your API key here to enable query processing.",
+        key="api_key_input"
+    )
+    if user_api_key:
+        st.session_state.user_api_key = user_api_key
+        st.success("API Key set! Ready for queries.")
+    else:
+        st.warning("⚠️ Please paste your API key above to start.")
+        
+    st.markdown("---")
     st.success(f"Logfire: {LOGFIRE_STATUS}")
     st.info(f"Memory ID: {st.session_state.session_id[:8]}")
     
@@ -90,9 +106,18 @@ if prompt := st.chat_input("Ask about your documentation..."):
                         # Get backend URL from env, or default to local if not set
                         base_url = os.getenv("BACKEND_URL") or "http://127.0.0.1:8000"
                         url = f"{base_url}/query"
-                        payload = {"q": prompt, "thread_id": st.session_state.session_id}
-                        response = requests.post(url, json=payload, timeout=60)
+                        payload = {
+                            "q": prompt,
+                            "thread_id": st.session_state.session_id,
+                            "api_key": st.session_state.get("user_api_key")
+                        }
+                        headers = {}
+                        if st.session_state.get("user_api_key"):
+                            headers["X-API-Key"] = st.session_state.user_api_key
+                            
+                        response = requests.post(url, json=payload, headers=headers, timeout=60)
                         data = response.json()
+
                     
                     # Show Reasoning Steps from Backend
                     steps = data.get("thought_process", [])

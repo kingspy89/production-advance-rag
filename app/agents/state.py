@@ -1,4 +1,4 @@
-from typing import TypedDict, List, Annotated
+from typing import TypedDict, List, Annotated, Optional
 import operator
 
 
@@ -11,3 +11,6 @@ class AgentState(TypedDict):
     plan: List[str]
     status: str
     final_answer: str
+    api_key: Optional[str]
+    gemini_api_key: Optional[str]
+

@@ -84,11 +84,22 @@ def _embed_batch(batch: list[str]) -> list[list[float]]:
 
 # ── Public API (same signatures as before) ─────────────────────────────────────
 
-def embed_query(query: str) -> list[float]:
+def embed_query(query: str, gemini_api_key: str = None) -> list[float]:
+    if gemini_api_key:
+        try:
+            model = GoogleGenerativeAIEmbeddings(
+                model="models/gemini-embedding-2-preview",
+                google_api_key=gemini_api_key,
+            )
+            return model.embed_query(query)
+        except Exception as e:
+            logfire.warning(f"Embedding with user Gemini API key failed: {e}. Falling back to default embedder.")
+    
     _init()
     if _model_type == "gemini":
         return _active_model.embed_query(query)
     return _active_model.encode([query])[0].tolist()
+
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:

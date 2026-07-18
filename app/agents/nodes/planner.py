@@ -2,13 +2,12 @@ from app.agents.state import AgentState
 from app.gateway import get_langchain_llm
 import logfire
 
-# Portkey-backed LLM: fallback + cache + retry — same .invoke() interface as ChatGroq
-llm = get_langchain_llm(feature="planner")
-
 def planner_node(state: AgentState):
     """
     The Planner determines if a search is needed based on the ENTIRE conversation.
     """
+    llm = get_langchain_llm(feature="planner", api_key=state.get("api_key"))
+    
     # Get the conversation history (excluding the latest message)
     history = ""
     for msg in state["messages"][:-1]:
@@ -50,3 +49,4 @@ def planner_node(state: AgentState):
         "status": f"Technical research needed. Searching for: {decision}",
         "plan": ["Intent: Technical", f"Search Term: {decision}"]
     }
+

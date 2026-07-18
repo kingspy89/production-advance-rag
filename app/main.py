@@ -14,25 +14,41 @@ else:
     logfire.configure(token=token)
 
 # Now safe to import app modules - logfire is already active
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Header
+from fastapi.middleware.cors import CORSMiddleware
 from app.agents.graph import rag_agent
 from app.guardrails import initialize_rails, guard
+from app.config import settings
 
 from pydantic import BaseModel
 from typing import Optional
 
 
-# Initialize FastAPI
-app = FastAPI(title="Enterprise Agentic RAG API")
+from contextlib import asynccontextmanager
 
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     initialize_rails()
+    yield
+
+# Initialize FastAPI
+app = FastAPI(title="Enterprise Agentic RAG API", lifespan=lifespan)
+
+# Add CORS Middleware for Vercel and local UI cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class QueryRequest(BaseModel):
     q: str
     thread_id: Optional[str] = "default_user"
+    api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     
     
 @app.get("/")
@@ -53,19 +69,37 @@ def get_graph_image():
     
     
 @app.post("/query")
-def query(request: QueryRequest):
+def query(
+    request: QueryRequest,
+    x_api_key: Optional[str] = Header(None),
+    x_groq_api_key: Optional[str] = Header(None),
+    x_gemini_api_key: Optional[str] = Header(None)
+):
     """
     Executes the LangGraph RAG flow with memory using a POST request.
     """
     q = request.q
     thread_id = request.thread_id
+    effective_api_key = request.api_key or x_api_key or x_groq_api_key or os.getenv("GROQ_API_KEY")
+    effective_gemini_key = request.gemini_api_key or x_gemini_api_key or os.getenv("GEMINI_API_KEY")
+
+    if not effective_api_key and not settings.PORTKEY_API_KEY and not settings.GROQ_API_KEY:
+        return {
+            "question": q,
+            "answer": "🔑 API Key Required: Please enter your Groq or Gemini API key in the UI settings panel before asking questions.",
+            "thought_process": ["Validation: Missing API Key"],
+            "status": "API Key Missing",
+            "sources": []
+        }
 
     initial_state = {
         "messages": [{"role": "user", "content": q}],
         "current_query": q,
         "documents": [],
         "plan": ["Start"],
-        "status": "Initializing Graph..."
+        "status": "Initializing Graph...",
+        "api_key": effective_api_key,
+        "gemini_api_key": effective_gemini_key
     }
     
     # Configuration for Memory (Thread ID)
@@ -99,8 +133,9 @@ def query(request: QueryRequest):
         logfire.error(f"❌ Backend Execution Failed: {e}")
         return {
             "question": q,
-            "answer": "I apologize, but I encountered an internal error while processing your request. Please try again later.",
+            "answer": f"I apologize, but I encountered an internal error: {e}",
             "thought_process": ["Error encountered during execution."],
             "status": "error",
             "sources": []
         }
+

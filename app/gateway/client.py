@@ -55,11 +55,12 @@ else:
             
     portkey_client = WrappedOpenAI(_raw_client)
 
-def get_langchain_llm(feature: str = "rag") -> ChatOpenAI:
+def get_langchain_llm(feature: str = "rag", api_key: str = None) -> ChatOpenAI:
     """
-    Returns a Portkey-backed ChatOpenAI, or falls back to direct Groq ChatOpenAI if Portkey is not configured.
+    Returns a ChatOpenAI instance using a user-provided API key, Portkey, or Groq default.
     """
-    if settings.PORTKEY_API_KEY:
+    effective_key = api_key or settings.GROQ_API_KEY
+    if not api_key and settings.PORTKEY_API_KEY:
         from portkey_ai import createHeaders, PORTKEY_GATEWAY_URL
         
         # Determine headers based on whether saved config ID or inline config is used
@@ -105,11 +106,26 @@ def get_langchain_llm(feature: str = "rag") -> ChatOpenAI:
         )
     else:
         return ChatOpenAI(
-            api_key=settings.GROQ_API_KEY,
+            api_key=effective_key,
             base_url="https://api.groq.com/openai/v1",
             model=settings.GROQ_MODEL,
             temperature=0
         )
+
+def get_llm_client(api_key: str = None):
+    """
+    Returns a client instance (wrapped OpenAI or Portkey) using user api_key or default.
+    """
+    effective_key = api_key or settings.GROQ_API_KEY
+    if not api_key and settings.PORTKEY_API_KEY:
+        return portkey_client
+    
+    from openai import OpenAI
+    raw_client = OpenAI(
+        api_key=effective_key,
+        base_url="https://api.groq.com/openai/v1"
+    )
+    return WrappedOpenAI(raw_client)
 
 def extract_cache_status(response) -> str:
     """
@@ -123,3 +139,4 @@ def extract_cache_status(response) -> str:
             if status:
                 return status.upper()
     return "MISS"
+

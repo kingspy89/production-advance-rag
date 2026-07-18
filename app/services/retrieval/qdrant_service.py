@@ -11,13 +11,13 @@ client = QdrantClient(
     api_key=settings.QDRANT_API_KEY
 )
 
-def search_enterprise_knowledge(query: str, limit: int = 8):
+def search_enterprise_knowledge(query: str, limit: int = 8, gemini_api_key: str = None):
     """
     Performs a high-precision search in the enterprise knowledge base.
     Uses the modern query_points interface.
     """
     try:
-        query_vector = embed_query(query)
+        query_vector = embed_query(query, gemini_api_key=gemini_api_key)
 
         # Using query_points - the modern standard for Qdrant
         response = client.query_points(
@@ -39,3 +39,4 @@ def search_enterprise_knowledge(query: str, limit: int = 8):
     except Exception as e:
         logfire.error(f"❌ Qdrant Search Failed: {e}")
         return []
+

@@ -1,14 +1,14 @@
 import logfire
 from app.agents.state import AgentState
-from app.gateway import portkey_client, extract_cache_status
+from app.gateway import get_llm_client, extract_cache_status
 
 
 def generate_node(state: AgentState):
     """
     Synthesizes a response using both Documentation Context AND Conversation History.
-    Uses the native Portkey client (not LangChain) so we can read the
-    x-portkey-cache-status response header and surface Cache: Hit in the UI.
+    Uses the client (Portkey or OpenAI/Groq wrapper) with dynamic API key support.
     """
+    llm_client = get_llm_client(api_key=state.get("api_key"))
     query = state["current_query"]
 
     history_str = ""
@@ -58,7 +58,7 @@ def generate_node(state: AgentState):
 
     with logfire.span("✍️ LLM Synthesis"):
         try:
-            response = portkey_client.chat.completions.create(
+            response = llm_client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1
             )
@@ -85,3 +85,4 @@ def generate_node(state: AgentState):
         except Exception as e:
             logfire.error(f"LLM Generation failed: {e}")
             raise e
+
