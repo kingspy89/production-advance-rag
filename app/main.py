@@ -34,6 +34,8 @@ async def lifespan(app: FastAPI):
 # Initialize FastAPI
 app = FastAPI(title="Enterprise Agentic RAG API", lifespan=lifespan)
 
+from fastapi.staticfiles import StaticFiles
+
 # Add CORS Middleware for Vercel and local UI cross-origin requests
 app.add_middleware(
     CORSMiddleware,
@@ -42,6 +44,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static UI at http://localhost:8000/site/
+if os.path.exists("public"):
+    app.mount("/site", StaticFiles(directory="public", html=True), name="site")
+
 
 
 class QueryRequest(BaseModel):
