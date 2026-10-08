@@ -32,8 +32,8 @@ index.faiss
 metadata.pkl
 
 # Data
-
-
+DATA/
+processed_data/
 # IDEs
 .vscode/
 .idea/
