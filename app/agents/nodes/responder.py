@@ -8,8 +8,18 @@ def generate_node(state: AgentState):
     Synthesizes a response using both Documentation Context AND Conversation History.
     Uses the client (Portkey or OpenAI/Groq wrapper) with dynamic API key support.
     """
-    llm_client = get_llm_client(api_key=state.get("api_key"))
     query = state["current_query"]
+
+    if query != "CONVERSATIONAL" and not state.get("documents"):
+        message = "I couldn't access the enterprise knowledge base right now. Please try again later."
+        return {
+            "final_answer": message,
+            "status": "Knowledge retrieval unavailable.",
+            "plan": state["plan"],
+            "messages": [{"role": "assistant", "content": message}]
+        }
+
+    llm_client = get_llm_client(api_key=state.get("api_key"))
 
     history_str = ""
     for msg in state["messages"][:-1]:

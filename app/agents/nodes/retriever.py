@@ -17,6 +17,14 @@ def retrieve_node(state: AgentState):
         raw_results = search_enterprise_knowledge(query, limit=15, gemini_api_key=g_key)
         logfire.info(f"Retrieved {len(raw_results)} candidates from Vector DB")
 
+        if not raw_results:
+            logfire.error("Vector DB returned no context; refusing unsupported technical answer.")
+            return {
+                "documents": [],
+                "status": "Knowledge retrieval unavailable.",
+                "plan": state["plan"] + ["Context Retrieval Failed"]
+            }
+
         
         doc_contents = [doc['content'] for doc in raw_results]
         

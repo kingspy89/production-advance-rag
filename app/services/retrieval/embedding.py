@@ -39,6 +39,11 @@ def _init():
     if _active_model is not None:
         return
 
+    if settings.EMBEDDING_PROVIDER == "local":
+        _active_model = _load_fallback()
+        _model_type = "fallback"
+        return
+
     gemini = _probe_gemini()
     if gemini:
         _active_model = gemini
@@ -85,7 +90,7 @@ def _embed_batch(batch: list[str]) -> list[list[float]]:
 # ── Public API (same signatures as before) ─────────────────────────────────────
 
 def embed_query(query: str, gemini_api_key: str = None) -> list[float]:
-    if gemini_api_key:
+    if gemini_api_key and settings.EMBEDDING_PROVIDER != "local":
         try:
             model = GoogleGenerativeAIEmbeddings(
                 model="models/gemini-embedding-2-preview",

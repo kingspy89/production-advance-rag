@@ -5,12 +5,14 @@ load_dotenv(override=True)
 class Settings:
     
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "local").lower()
     QDRANT_URL = os.getenv("QDRANT_CLUSTER_ENDPOINT")
     QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
     QDRANT_COLLECTION = "enterprise_rag"
 
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    GROQ_MODEL = "llama-3.3-70b-versatile"
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    GROQ_FALLBACK_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "qwen/qwen3.8-27b")
     GROQ_FALLBACK_API_KEY = os.getenv("GROQ_FALLBACK_API_KEY")
 
     # --- LLM GATEWAY (PORTKEY) ---
