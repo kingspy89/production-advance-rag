@@ -37,7 +37,7 @@ processed_data/
 # IDEs
 .vscode/
 .idea/
-read.md
+
 # OS
 .DS_Store
 Thumbs.db
