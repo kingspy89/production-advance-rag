@@ -51,9 +51,6 @@ def initialize_backend():
     return True
 
 
-initialize_backend()
-
-
 def execute_query(query: str, thread_id: str, api_key: str | None) -> dict:
     """Run the guarded LangGraph directly inside the Streamlit process."""
     effective_api_key = api_key or settings.GROQ_API_KEY
@@ -138,6 +135,10 @@ with st.sidebar:
         st.session_state.messages = []
         st.session_state.session_id = str(uuid.uuid4())
         st.rerun()
+
+settings.GROQ_API_KEY = user_api_key or settings.GROQ_API_KEY
+if settings.GROQ_API_KEY:
+    initialize_backend()
 
 # --- MAIN CHAT ---
 st.title("🤖 Enterprise Agentic Assistant")

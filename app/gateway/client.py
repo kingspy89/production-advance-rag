@@ -29,11 +29,9 @@ if settings.PORTKEY_API_KEY:
     )
 else:
     from openai import OpenAI
-    # Fallback directly to Groq
-    _raw_client = OpenAI(
-        api_key=settings.GROQ_API_KEY,
-        base_url="https://api.groq.com/openai/v1"
-    )
+    # The OpenAI SDK is used only as a protocol-compatible client for Groq.
+    # Create it lazily so importing the app does not require OPENAI_API_KEY.
+    _raw_client = None
     
     class WrappedCompletions:
         def __init__(self, completions):
@@ -53,7 +51,7 @@ else:
             self.client = client
             self.chat = WrappedChat(client.chat)
             
-    portkey_client = WrappedOpenAI(_raw_client)
+    portkey_client = None
 
 def get_langchain_llm(feature: str = "rag", api_key: str = None) -> ChatOpenAI:
     """
@@ -105,6 +103,8 @@ def get_langchain_llm(feature: str = "rag", api_key: str = None) -> ChatOpenAI:
             default_headers=config_headers
         )
     else:
+        if not effective_key:
+            raise ValueError("GROQ_API_KEY is required for direct Groq requests.")
         return ChatOpenAI(
             api_key=effective_key,
             base_url="https://api.groq.com/openai/v1",
@@ -121,6 +121,8 @@ def get_llm_client(api_key: str = None):
         return portkey_client
     
     from openai import OpenAI
+    if not effective_key:
+        raise ValueError("GROQ_API_KEY is required for direct Groq requests.")
     raw_client = OpenAI(
         api_key=effective_key,
         base_url="https://api.groq.com/openai/v1"
