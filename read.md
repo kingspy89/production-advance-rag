@@ -1,4 +1,4 @@
-# Enterprise Agentic RAG: Troubleshooting and Interview Guide
+# Enterprise Agentic RAG: Troubleshooting and  Guide
 
 ## 1. Project Summary
 
@@ -207,7 +207,7 @@ Check the indexed vector count:
 .\.venv\Scripts\python.exe -c "from app.config import settings; from qdrant_client import QdrantClient; c=QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=30); print(c.get_collection(settings.QDRANT_COLLECTION).points_count)"
 ```
 
-## 5. Interview Questions and Suggested Answers
+## 5.Questions and Suggested Answers
 
 ### Architecture
 
