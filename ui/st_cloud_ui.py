@@ -1,6 +1,5 @@
 import os
 import streamlit as st
-import requests
 import time
 import uuid
 import logfire
@@ -17,6 +16,73 @@ try:
     LOGFIRE_STATUS = "Connected & Tracing"
 except Exception:
     LOGFIRE_STATUS = "Standby (No Token)"
+
+
+# Streamlit Cloud can run the agent in the same process, so no separate
+# backend URL or Render service is required for this deployment.
+for secret_name in (
+    "GROQ_API_KEY",
+    "GROQ_FALLBACK_API_KEY",
+    "QDRANT_API_KEY",
+    "QDRANT_CLUSTER_ENDPOINT",
+    "GEMINI_API_KEY",
+    "EMBEDDING_PROVIDER",
+    "LANGSMITH_TRACING",
+    "LANGSMITH_API_KEY",
+):
+    if secret_name in st.secrets:
+        os.environ[secret_name] = str(st.secrets[secret_name])
+
+from app.agents.graph import rag_agent
+from app.config import settings
+from app.guardrails import guard, initialize_rails
+
+
+@st.cache_resource
+def initialize_backend():
+    initialize_rails()
+    return True
+
+
+initialize_backend()
+
+
+def execute_query(query: str, thread_id: str, api_key: str | None) -> dict:
+    """Run the guarded LangGraph directly inside the Streamlit process."""
+    effective_api_key = api_key or settings.GROQ_API_KEY
+    if not effective_api_key and not settings.PORTKEY_API_KEY:
+        return {
+            "answer": "API key required. Add GROQ_API_KEY to Streamlit Secrets.",
+            "thought_process": ["Validation: Missing API Key"],
+            "sources": [],
+        }
+
+    rail_fired, rail_response = guard(query)
+    if rail_fired:
+        return {
+            "answer": rail_response,
+            "thought_process": ["Intent: Guardrails Fired", "Retrieval: Skipped"],
+            "sources": [],
+        }
+
+    initial_state = {
+        "messages": [{"role": "user", "content": query}],
+        "current_query": query,
+        "documents": [],
+        "plan": ["Start"],
+        "status": "Initializing Graph...",
+        "api_key": effective_api_key,
+        "gemini_api_key": settings.GEMINI_API_KEY,
+    }
+    final_output = rag_agent.invoke(
+        initial_state,
+        config={"configurable": {"thread_id": thread_id}},
+    )
+    return {
+        "answer": final_output.get("final_answer"),
+        "thought_process": final_output.get("plan"),
+        "sources": final_output.get("documents", []),
+    }
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -56,8 +122,6 @@ with st.sidebar:
     else:
         st.warning("⚠️ Please paste your API key above to start.")
 
-    base_url = os.getenv("BACKEND_URL") or "http://localhost:8000"
-
     st.markdown("---")
     st.success(f"Logfire: {LOGFIRE_STATUS}")
     st.info(f"Memory ID: {st.session_state.session_id[:8]}")
@@ -91,25 +155,12 @@ if prompt := st.chat_input("Ask about your documentation..."):
             data = {}
             with st.status("🔍 Agent is thinking...", expanded=True) as status:
                 try:
-                    with logfire.span("📡 Calling RAG Backend"):
-                        url = f"{base_url}/query"
-                        payload = {
-                            "q": prompt,
-                            "thread_id": st.session_state.session_id,
-                            "api_key": st.session_state.get("user_api_key")
-                        }
-                        headers = {}
-                        if st.session_state.get("user_api_key"):
-                            headers["X-API-Key"] = st.session_state.user_api_key
-
-                        response = requests.post(url, json=payload, headers=headers, timeout=60)
-
-
-                        if response.status_code != 200:
-                            st.error(f"Backend Error: {response.status_code} - {response.text}")
-                            st.stop()
-
-                        data = response.json()
+                    with logfire.span("🧠 Running Agent Pipeline"):
+                        data = execute_query(
+                            prompt,
+                            st.session_state.session_id,
+                            st.session_state.get("user_api_key"),
+                        )
 
                     steps = data.get("thought_process", [])
                     for step in steps:
