@@ -16,9 +16,9 @@ sys.path.insert(0, PROJECT_ROOT)
 try:
     token = st.secrets.get("LOGFIRE_TOKEN", os.getenv("LOGFIRE_TOKEN"))
     if not token:
-        logfire.configure(send_to_logfire=False)
+        logfire.configure(send_to_logfire=False, inspect_arguments=False)
     else:
-        logfire.configure(token=token)
+        logfire.configure(token=token, inspect_arguments=False)
     logfire.instrument_requests()   # propagates trace context to the FastAPI backend
     LOGFIRE_STATUS = "Connected & Tracing"
 except Exception:
