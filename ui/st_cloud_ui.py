@@ -49,9 +49,10 @@ from app.guardrails import guard, initialize_rails
 
 
 @st.cache_resource
-def initialize_backend():
+def initialize_backend(api_key: str):
+    """Cached per api_key — re-initialises guardrails whenever the user provides a new key."""
     try:
-        initialize_rails()
+        initialize_rails(api_key=api_key)
         return True
     except Exception as exc:
         # Guardrail init failure must not crash the whole app.
@@ -146,9 +147,12 @@ with st.sidebar:
         st.session_state.session_id = str(uuid.uuid4())
         st.rerun()
 
-settings.GROQ_API_KEY = user_api_key or settings.GROQ_API_KEY
-if settings.GROQ_API_KEY:
-    initialize_backend()
+# Use the user-provided key (or fall back to the secret) for both guardrails + RAG.
+# @st.cache_resource re-initialises automatically when the key changes.
+effective_groq_key = user_api_key or settings.GROQ_API_KEY
+if effective_groq_key:
+    settings.GROQ_API_KEY = effective_groq_key
+    initialize_backend(effective_groq_key)
 
 # --- MAIN CHAT ---
 st.title("🤖 Enterprise Agentic Assistant")

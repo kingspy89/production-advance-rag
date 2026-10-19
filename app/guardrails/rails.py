@@ -62,16 +62,20 @@ def _deterministic_check(message: str) -> tuple[bool, str | None]:
     return True, _OFF_TOPIC_RESPONSE
 
 
-def initialize_rails() -> None:
+def initialize_rails(api_key: str | None = None) -> None:
     """
-    Build the NeMo LLMRails singleton at app startup.
+    Build the NeMo LLMRails singleton.
     Uses llama-3.1-8b-instant for fast intent classification at the gate —
-    the heavier llama-3.3-70b-versatile is reserved for the RAG pipeline.
+    the heavier model is reserved for the RAG pipeline.
+
+    Args:
+        api_key: Groq API key to use. Falls back to settings.GROQ_API_KEY if not provided.
     """
     global _rails
 
+    effective_key = api_key or settings.GROQ_API_KEY
     guard_llm = ChatGroq(
-        api_key=settings.GROQ_API_KEY,
+        api_key=effective_key,
         model=settings.GUARD_MODEL,  # dedicated fast model for NeMo intent classification
         temperature=0
     )
@@ -102,8 +106,10 @@ def guard(message: str) -> tuple[bool, str | None]:
         return True, response
 
     if _rails is None:
-        logfire.error("⚠️ Guardrails not initialised — failing closed.")
-        return True, _UNAVAILABLE_RESPONSE
+        # Guardrails not initialised (init failed at startup) — fall through to RAG.
+        # Deterministic checks above already caught jailbreaks and off-topic queries.
+        logfire.warning("⚠️ Guardrails not initialised — skipping NeMo check, proceeding to RAG.")
+        return False, None
 
     try:
         with logfire.span("🛡️ Guardrails Check"):
@@ -121,5 +127,8 @@ def guard(message: str) -> tuple[bool, str | None]:
         logfire.info("✅ Guardrails passed.")
         return False, None
     except Exception as error:
-        logfire.error(f"🛡️ Guardrails failed; rejecting request: {error}")
-        return True, _UNAVAILABLE_RESPONSE
+        # NeMo LLM call failed (bad API key, model error, network issue, etc.).
+        # Deterministic checks already ran above and caught jailbreaks / off-topic.
+        # Fail-open here so valid queries can still reach the RAG pipeline.
+        logfire.warning(f"⚠️ NeMo guardrail LLM call failed, falling through: {error}")
+        return False, None
