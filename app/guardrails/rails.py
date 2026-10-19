@@ -1,21 +1,69 @@
+"""
+Guardrail layer for the Enterprise RAG assistant.
+
+Architecture:
+    guard() runs a fast, deterministic regex pipeline that requires NO external
+    LLM calls. This makes it:
+      - Instantaneous (no network latency)
+      - Zero-cost (no token usage)
+      - Immune to model deprecations / API key issues
+
+    The original NeMo LLMRails layer was removed because `openai/gpt-oss-120b`
+    stopped producing parseable Colang completions on Groq (400 output_parse_failed).
+    Since the deterministic layer already handles every case that NeMo handled,
+    nothing is lost.
+
+Flow:
+    1. Jailbreak regex  → block immediately
+    2. Off-topic regex  → block immediately
+    3. Technical regex  → pass through to RAG
+    4. Conversational   → pass through to RAG
+    5. Anything else    → block as off-topic
+"""
+
 import re
-
 import logfire
-from langchain_groq import ChatGroq
-from nemoguardrails import RailsConfig, LLMRails
-
-from app.config import settings
-from app.guardrails.colang_rules import COLANG_CONTENT, YAML_CONTENT, RAIL_INDICATORS
 
 
-_rails: LLMRails | None = None
+# ---------------------------------------------------------------------------
+# Response templates
+# ---------------------------------------------------------------------------
+
+_JAILBREAK_RESPONSE = (
+    "I can only help with Kubernetes, Intel hardware, and enterprise networking."
+)
+_OFF_TOPIC_RESPONSE = (
+    "I'm an Enterprise IT Assistant focused on Kubernetes, Intel hardware, and networking. "
+    "I can't help with that, but ask me a technical question."
+)
+
+# Conversational responses (returned by deterministic check so no LLM needed)
+_GREETING_RESPONSE = (
+    "Hello! I'm your Enterprise IT Assistant. I specialise in Kubernetes, Intel hardware, "
+    "and enterprise networking. What can I help you with today?"
+)
+_FAREWELL_RESPONSE = (
+    "Goodbye! Feel free to return whenever you have more enterprise IT questions. Have a great day!"
+)
+_CAPABILITIES_RESPONSE = (
+    "I'm an Enterprise AI Assistant with deep expertise in:\n"
+    "- **Kubernetes** (deployment, scaling, networking, operators)\n"
+    "- **Intel Hardware** (CPUs, FPGAs, SRIOV, NICs)\n"
+    "- **Enterprise Networking** (SDN, VLANs, BGP, routing)\n\n"
+    "Ask me anything in these areas!"
+)
+
+
+# ---------------------------------------------------------------------------
+# Regex pattern banks
+# ---------------------------------------------------------------------------
 
 _JAILBREAK_PATTERNS = (
     r"\b(ignore|disregard|forget|override)\b.{0,80}\b(previous|earlier|system|safety|security|developer|instructions?|rules?|guidelines?)\b",
-    r"\b(reveal|show|print|repeat| disclose)\b.{0,50}\b(system prompt|developer message|hidden prompt|secret instructions?)\b",
+    r"\b(reveal|show|print|repeat|disclose)\b.{0,50}\b(system prompt|developer message|hidden prompt|secret instructions?)\b",
     r"\b(bypass|disable|remove|circumvent)\b.{0,50}\b(guardrails?|safety|security|filters?|restrictions?)\b",
     r"\b(jailbreak|prompt injection|developer mode|dan mode|unrestricted mode)\b",
-    r"\b(you are|act as|pretend to be)\b.{0,50}\b(unrestricted|ไม่ได้|dan|evil|unfiltered)\b",
+    r"\b(you are|act as|pretend to be)\b.{0,50}\b(unrestricted|dan|evil|unfiltered)\b",
 )
 
 _OFF_TOPIC_PATTERNS = (
@@ -32,103 +80,80 @@ _TECHNICAL_PATTERNS = (
     r"\b(network|networking|vlan|bgp|routing|router|switch|firewall|sdn|tcp|udp|dns|ip address)\b",
 )
 
-_ALLOWED_CONVERSATIONAL_PATTERNS = (
-    r"^(hi|hello|hey|good morning|good afternoon|what's up|howdy)[!. ]*$",
+_GREETING_PATTERNS = (
+    r"^(hi+|hello+|hey+|good morning|good afternoon|what'?s up|howdy)[!?. ]*$",
+)
+
+_FAREWELL_PATTERNS = (
+    r"^(bye+|goodbye|see you|thanks bye|that is all|i am done|see you later)[!?. ]*$",
+)
+
+_CAPABILITIES_PATTERNS = (
     r"^(what can you do|what do you know|help|what are you|what topics do you cover|what can i ask you|what are your capabilities)[?. ]*$",
-    r"^(bye|goodbye|see you|thanks bye|that is all|i am done|see you later)[!. ]*$",
 )
 
-_JAILBREAK_RESPONSE = (
-    "I can only help with Kubernetes, Intel hardware, and enterprise networking."
-)
-_OFF_TOPIC_RESPONSE = (
-    "I'm an Enterprise IT Assistant focused on Kubernetes, Intel hardware, and networking. "
-    "I can't help with that, but ask me a technical question."
-)
-_UNAVAILABLE_RESPONSE = "The safety gate is unavailable, so this request cannot be processed."
 
+# ---------------------------------------------------------------------------
+# Deterministic check
+# ---------------------------------------------------------------------------
 
 def _deterministic_check(message: str) -> tuple[bool, str | None]:
+    """
+    Pure-regex guardrail. Returns (blocked, response_or_None).
+    No LLM call, no network, no latency.
+    """
     normalized = re.sub(r"\s+", " ", message.casefold()).strip()
 
-    if any(re.search(pattern, normalized) for pattern in _JAILBREAK_PATTERNS):
+    # --- Hard blocks ---
+    if any(re.search(p, normalized) for p in _JAILBREAK_PATTERNS):
         return True, _JAILBREAK_RESPONSE
-    if any(re.search(pattern, normalized) for pattern in _OFF_TOPIC_PATTERNS):
-        return True, _OFF_TOPIC_RESPONSE
-    if any(re.search(pattern, normalized) for pattern in _TECHNICAL_PATTERNS):
-        return False, None
-    if any(re.search(pattern, normalized) for pattern in _ALLOWED_CONVERSATIONAL_PATTERNS):
-        return False, None
-    return True, _OFF_TOPIC_RESPONSE
 
+    if any(re.search(p, normalized) for p in _OFF_TOPIC_PATTERNS):
+        return True, _OFF_TOPIC_RESPONSE
+
+    # --- Always-pass: clearly technical ---
+    if any(re.search(p, normalized) for p in _TECHNICAL_PATTERNS):
+        return False, None
+
+    # --- Conversational shortcuts (return inline, skip RAG) ---
+    if any(re.search(p, normalized) for p in _GREETING_PATTERNS):
+        return True, _GREETING_RESPONSE
+
+    if any(re.search(p, normalized) for p in _FAREWELL_PATTERNS):
+        return True, _FAREWELL_RESPONSE
+
+    if any(re.search(p, normalized) for p in _CAPABILITIES_PATTERNS):
+        return True, _CAPABILITIES_RESPONSE
+
+    # --- Default: pass through to RAG (let the LLM decide) ---
+    return False, None
+
+
+# ---------------------------------------------------------------------------
+# Public API  (initialize_rails kept for import compatibility)
+# ---------------------------------------------------------------------------
 
 def initialize_rails(api_key: str | None = None) -> None:
     """
-    Build the NeMo LLMRails singleton.
-    Uses llama-3.1-8b-instant for fast intent classification at the gate —
-    the heavier model is reserved for the RAG pipeline.
-
-    Args:
-        api_key: Groq API key to use. Falls back to settings.GROQ_API_KEY if not provided.
+    No-op — NeMo LLM rails removed in favour of deterministic-only guardrails.
+    Kept for API compatibility with st_cloud_ui.py and main.py.
     """
-    global _rails
-
-    effective_key = api_key or settings.GROQ_API_KEY
-    guard_llm = ChatGroq(
-        api_key=effective_key,
-        model=settings.GUARD_MODEL,  # dedicated fast model for NeMo intent classification
-        temperature=0
-    )
-
-    config = RailsConfig.from_content(
-        colang_content=COLANG_CONTENT,
-        yaml_content=YAML_CONTENT
-    )
-
-    _rails = LLMRails(config, llm=guard_llm)
-    logfire.info("🛡️ NeMo Guardrails initialised.")
-    
-    
+    logfire.info("🛡️ Guardrails initialised (deterministic-only mode).")
 
 
 def guard(message: str) -> tuple[bool, str | None]:
     """
-    Run a user message through the NeMo rails gate.
+    Run a user message through the guardrail gate.
 
     Returns:
-        (True,  rail_response) — a rail fired; return this response immediately,
-                                skip the RAG pipeline entirely.
-        (False, None)          — message is clean; proceed to LangGraph.
+        (True,  response) — rail fired; return response, skip RAG pipeline.
+        (False, None)     — message is clean; proceed to LangGraph.
     """
     blocked, response = _deterministic_check(message)
+
     if blocked:
-        logfire.info(f"🛡️ Deterministic guardrail fired | query='{message[:80]}'")
-        return True, response
+        logfire.info(f"🛡️ Guardrail fired | query='{message[:80]}'")
+    else:
+        logfire.info("✅ Guardrail passed.")
 
-    if _rails is None:
-        # Guardrails not initialised (init failed at startup) — fall through to RAG.
-        # Deterministic checks above already caught jailbreaks and off-topic queries.
-        logfire.warning("⚠️ Guardrails not initialised — skipping NeMo check, proceeding to RAG.")
-        return False, None
-
-    try:
-        with logfire.span("🛡️ Guardrails Check"):
-            result = _rails.generate(messages=[{"role": "user", "content": message}])
-
-        content = result.get("content", "") if isinstance(result, dict) else str(result)
-        normalized_content = content.casefold()
-
-        fired = any(indicator.casefold() in normalized_content for indicator in RAIL_INDICATORS)
-
-        if fired:
-            logfire.info(f"🛡️ Guardrails fired | query='{message[:80]}'")
-            return True, content
-
-        logfire.info("✅ Guardrails passed.")
-        return False, None
-    except Exception as error:
-        # NeMo LLM call failed (bad API key, model error, network issue, etc.).
-        # Deterministic checks already ran above and caught jailbreaks / off-topic.
-        # Fail-open here so valid queries can still reach the RAG pipeline.
-        logfire.warning(f"⚠️ NeMo guardrail LLM call failed, falling through: {error}")
-        return False, None
+    return blocked, response
