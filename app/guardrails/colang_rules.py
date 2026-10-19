@@ -98,11 +98,6 @@ define flow farewell
 """
 
 YAML_CONTENT = """
-models:
-  - type: main
-    engine: openai
-    model: gpt-3.5-turbo
-
 instructions:
   - type: general
     content: |
