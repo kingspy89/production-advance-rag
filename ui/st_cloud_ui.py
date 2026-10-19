@@ -41,7 +41,10 @@ for secret_name in (
     "LOGFIRE_TOKEN",
 ):
     if secret_name in st.secrets:
-        os.environ[secret_name] = str(st.secrets[secret_name])
+        val = str(st.secrets[secret_name])
+        if secret_name in ("GROQ_MODEL", "GUARD_MODEL") and val in ("openai/gpt-oss-120b", "llama-3.1-8b-instant", "llama-3.3-70b-versatile"):
+            val = "qwen/qwen3.8-27b"
+        os.environ[secret_name] = val
 
 from app.agents.graph import rag_agent
 from app.config import settings

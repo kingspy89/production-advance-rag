@@ -95,32 +95,36 @@ _CAPABILITIES_PATTERNS = (
 )
 
 
-def _deterministic_check(message: str) -> tuple[bool, str | None]:
+def _deterministic_check(message: str) -> tuple[str, str | None]:
     """
     Layer 1 fast deterministic check.
-    Returns (blocked, response_or_None).
+    Returns:
+        ("BLOCKED", response)    - rule fired; return response, skip RAG
+        ("PASS", None)           - unambiguous technical query; skip NeMo, go straight to RAG
+        ("CONVERSATIONAL", resp) - greeting/farewell/capabilities; return inline
+        ("AMBIGUOUS", None)      - needs semantic check via NeMo Guardrails
     """
     normalized = re.sub(r"\s+", " ", message.casefold()).strip()
 
     if any(re.search(p, normalized) for p in _JAILBREAK_PATTERNS):
-        return True, _JAILBREAK_RESPONSE
+        return "BLOCKED", _JAILBREAK_RESPONSE
 
     if any(re.search(p, normalized) for p in _OFF_TOPIC_PATTERNS):
-        return True, _OFF_TOPIC_RESPONSE
+        return "BLOCKED", _OFF_TOPIC_RESPONSE
 
     if any(re.search(p, normalized) for p in _GREETING_PATTERNS):
-        return True, _GREETING_RESPONSE
+        return "CONVERSATIONAL", _GREETING_RESPONSE
 
     if any(re.search(p, normalized) for p in _FAREWELL_PATTERNS):
-        return True, _FAREWELL_RESPONSE
+        return "CONVERSATIONAL", _FAREWELL_RESPONSE
 
     if any(re.search(p, normalized) for p in _CAPABILITIES_PATTERNS):
-        return True, _CAPABILITIES_RESPONSE
+        return "CONVERSATIONAL", _CAPABILITIES_RESPONSE
 
     if any(re.search(p, normalized) for p in _TECHNICAL_PATTERNS):
-        return False, None
+        return "PASS", None
 
-    return False, None
+    return "AMBIGUOUS", None
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +144,9 @@ def initialize_rails(api_key: str | None = None) -> None:
 
     try:
         model_name = settings.GUARD_MODEL or "qwen/qwen3.8-27b"
+        if model_name in ("openai/gpt-oss-120b", "llama-3.1-8b-instant", "llama-3.3-70b-versatile"):
+            model_name = "qwen/qwen3.8-27b"
+
         guard_llm = ChatGroq(
             api_key=effective_key,
             model=model_name,
@@ -174,15 +181,27 @@ def guard(message: str) -> tuple[bool, str | None]:
     """
     Run a user message through the hybrid guardrail gate:
     1. Layer 1: Deterministic check (instant, 0ms)
+       - If explicitly blocked or conversational -> return immediately
+       - If explicitly technical -> pass directly to RAG
     2. Layer 2: NeMo Guardrails (semantic intent classification with free LLM)
+       - Only evaluates ambiguous queries
     """
     # --- Layer 1: Fast deterministic checks ---
-    blocked, response = _deterministic_check(message)
-    if blocked:
-        logfire.info(f"🛡️ Layer 1 Guardrail fired | query='{message[:80]}'")
+    status, response = _deterministic_check(message)
+
+    if status == "BLOCKED":
+        logfire.info(f"🛡️ Layer 1 Guardrail fired (Blocked) | query='{message[:80]}'")
         return True, response
 
-    # --- Layer 2: NeMo Guardrails Semantic Check ---
+    if status == "CONVERSATIONAL":
+        logfire.info(f"🛡️ Layer 1 Conversational response | query='{message[:80]}'")
+        return True, response
+
+    if status == "PASS":
+        logfire.info(f"✅ Technical domain match: passing directly to RAG | query='{message[:80]}'")
+        return False, None
+
+    # --- Layer 2: NeMo Guardrails Semantic Check (ambiguous queries only) ---
     if _rails is not None:
         try:
             with logfire.span("🛡️ NeMo Guardrails Check"):

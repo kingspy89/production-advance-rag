@@ -11,9 +11,14 @@ class Settings:
     QDRANT_COLLECTION = "enterprise_rag"
 
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-    GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
-    # Guardrail gate uses qwen/qwen3.8-27b (verified working on Groq free tier)
-    GUARD_MODEL = os.getenv("GUARD_MODEL", "qwen/qwen3.8-27b")
+    
+    _unsupported_models = {"openai/gpt-oss-120b", "llama-3.1-8b-instant", "llama-3.3-70b-versatile"}
+    _raw_groq = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    GROQ_MODEL = "qwen/qwen3.8-27b" if _raw_groq in _unsupported_models else _raw_groq
+
+    _raw_guard = os.getenv("GUARD_MODEL", "qwen/qwen3.8-27b")
+    GUARD_MODEL = "qwen/qwen3.8-27b" if _raw_guard in _unsupported_models else _raw_guard
+
     GROQ_FALLBACK_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
     GROQ_FALLBACK_API_KEY = os.getenv("GROQ_FALLBACK_API_KEY")
 
