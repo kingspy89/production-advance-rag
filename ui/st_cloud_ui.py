@@ -30,12 +30,15 @@ except Exception:
 for secret_name in (
     "GROQ_API_KEY",
     "GROQ_FALLBACK_API_KEY",
+    "GROQ_MODEL",
+    "GUARD_MODEL",
     "QDRANT_API_KEY",
     "QDRANT_CLUSTER_ENDPOINT",
     "GEMINI_API_KEY",
     "EMBEDDING_PROVIDER",
     "LANGSMITH_TRACING",
     "LANGSMITH_API_KEY",
+    "LOGFIRE_TOKEN",
 ):
     if secret_name in st.secrets:
         os.environ[secret_name] = str(st.secrets[secret_name])
@@ -47,8 +50,15 @@ from app.guardrails import guard, initialize_rails
 
 @st.cache_resource
 def initialize_backend():
-    initialize_rails()
-    return True
+    try:
+        initialize_rails()
+        return True
+    except Exception as exc:
+        # Guardrail init failure must not crash the whole app.
+        # Falls back to deterministic-only guardrails.
+        import logfire as _lf
+        _lf.error(f"NeMo Guardrails failed to initialise: {exc}")
+        return False
 
 
 def execute_query(query: str, thread_id: str, api_key: str | None) -> dict:
