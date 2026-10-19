@@ -72,7 +72,7 @@ def initialize_rails() -> None:
 
     guard_llm = ChatGroq(
         api_key=settings.GROQ_API_KEY,
-        model=settings.GROQ_MODEL,
+        model=settings.GUARD_MODEL,  # dedicated fast model for NeMo intent classification
         temperature=0
     )
 

@@ -12,6 +12,9 @@ class Settings:
 
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    # Guardrail gate uses a dedicated fast model — always NeMo-compatible,
+    # independent of GROQ_MODEL which may be set to a non-Colang-compatible model.
+    GUARD_MODEL = os.getenv("GUARD_MODEL", "llama-3.1-8b-instant")
     GROQ_FALLBACK_MODEL = os.getenv("GROQ_FALLBACK_MODEL", "qwen/qwen3.8-27b")
     GROQ_FALLBACK_API_KEY = os.getenv("GROQ_FALLBACK_API_KEY")
 
