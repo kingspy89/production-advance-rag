@@ -17,9 +17,29 @@ def search_enterprise_knowledge(query: str, limit: int = 8, gemini_api_key: str 
     """
     Performs a high-precision search in the enterprise knowledge base.
     Uses the modern query_points interface.
+    Validates query vector dimension against collection dimension.
     """
     try:
         query_vector = embed_query(query, gemini_api_key=gemini_api_key)
+
+        # Dimension validation: prevent silent data corruption
+        try:
+            collection_info = client.get_collection(settings.QDRANT_COLLECTION)
+            collection_dim = collection_info.config.params.vectors.size
+            query_dim = len(query_vector)
+
+            if collection_dim != query_dim:
+                error_msg = (
+                    f"❌ Embedding dimension mismatch: query={query_dim}D, "
+                    f"collection={collection_dim}D. Re-ingest data with matching embedding model."
+                )
+                logfire.error(error_msg)
+                raise ValueError(error_msg)
+
+            logfire.info(f"✅ Dimension validation passed: {query_dim}D")
+        except Exception as validation_error:
+            logfire.error(f"Dimension validation failed: {validation_error}")
+            raise
 
         # Using query_points - the modern standard for Qdrant
         response = client.query_points(
@@ -36,7 +56,8 @@ def search_enterprise_knowledge(query: str, limit: int = 8, gemini_api_key: str 
                 "source": res.payload.get("source", "Unknown"),
                 "score": res.score
             })
-        
+
+        logfire.info(f"Retrieved {len(results)} candidates with scores: {[r['score'] for r in results[:3]]}")
         return results
     except Exception as e:
         logfire.error(f"❌ Qdrant Search Failed: {e}")

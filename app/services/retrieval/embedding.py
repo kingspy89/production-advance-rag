@@ -96,14 +96,20 @@ def embed_query(query: str, gemini_api_key: str = None) -> list[float]:
                 model="models/gemini-embedding-2-preview",
                 google_api_key=gemini_api_key,
             )
-            return model.embed_query(query)
+            vector = model.embed_query(query)
+            logfire.info(f"Query embedded with user Gemini key | dimension={len(vector)}")
+            return vector
         except Exception as e:
             logfire.warning(f"Embedding with user Gemini API key failed: {e}. Falling back to default embedder.")
-    
+
     _init()
     if _model_type == "gemini":
-        return _active_model.embed_query(query)
-    return _active_model.encode([query])[0].tolist()
+        vector = _active_model.embed_query(query)
+    else:
+        vector = _active_model.encode([query])[0].tolist()
+
+    logfire.info(f"Query embedded | model={_model_type} | dimension={len(vector)}")
+    return vector
 
 
 

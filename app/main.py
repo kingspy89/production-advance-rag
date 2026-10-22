@@ -63,6 +63,86 @@ def home():
     return {"message": "Enterprise LangGraph RAG API is live."}
 
 
+@app.get("/health")
+def health_check():
+    """
+    Health check endpoint for operational monitoring.
+    Probes critical dependencies: Qdrant, Groq LLM, Guardrails.
+    """
+    from app.services.retrieval.qdrant_service import client as qdrant_client
+    from app.config import settings
+
+    health_status = {
+        "status": "healthy",
+        "timestamp": None,
+        "dependencies": {}
+    }
+
+    try:
+        import datetime
+        health_status["timestamp"] = datetime.datetime.utcnow().isoformat()
+    except Exception:
+        pass
+
+    # Probe 1: Qdrant Vector DB
+    try:
+        collections = qdrant_client.get_collections()
+        health_status["dependencies"]["qdrant"] = {
+            "status": "up",
+            "collections": len(collections.collections),
+            "endpoint": settings.QDRANT_URL[:50] + "..." if settings.QDRANT_URL else "not configured"
+        }
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["dependencies"]["qdrant"] = {
+            "status": "down",
+            "error": str(e)[:100]
+        }
+
+    # Probe 2: Groq API (via test completion)
+    try:
+        from app.gateway import get_langchain_llm
+        test_llm = get_langchain_llm(feature="health_check")
+        test_response = test_llm.invoke("ping")
+        health_status["dependencies"]["groq"] = {
+            "status": "up",
+            "model": settings.GROQ_MODEL
+        }
+    except Exception as e:
+        health_status["status"] = "degraded"
+        health_status["dependencies"]["groq"] = {
+            "status": "down",
+            "error": str(e)[:100]
+        }
+
+    # Probe 3: Guardrails (check if initialized)
+    try:
+        from app.guardrails.rails import _rails
+        health_status["dependencies"]["guardrails"] = {
+            "status": "up" if _rails is not None else "disabled",
+            "type": "hybrid (deterministic + NeMo)" if _rails else "deterministic-only"
+        }
+    except Exception as e:
+        health_status["dependencies"]["guardrails"] = {
+            "status": "unknown",
+            "error": str(e)[:100]
+        }
+
+    # Probe 4: Portkey Gateway (optional)
+    if settings.PORTKEY_API_KEY:
+        health_status["dependencies"]["portkey"] = {
+            "status": "configured",
+            "caching": "enabled"
+        }
+    else:
+        health_status["dependencies"]["portkey"] = {
+            "status": "not configured",
+            "caching": "disabled"
+        }
+
+    return health_status
+
+
 @app.get("/graph")
 def get_graph_image():
     """
