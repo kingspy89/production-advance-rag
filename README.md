@@ -38,6 +38,7 @@
 | | |
 |---|---|
 | 🏗️ | [System Architecture & Flow](#️-system-architecture--flow) |
+| 📈 | [Engineering Metrics & Impact](#-engineering-metrics--impact) |
 | 📁 | [Repository Structure](#-repository-structure) |
 | 🌊 | [In-Depth Data Flows](#-in-depth-data-flows) |
 | ☁️ | [Cloud Setup & Credentials](#️-cloud-setup--credentials) |
@@ -100,6 +101,32 @@ graph TD
 
 ---
 
+## 📈 Engineering Metrics & Impact
+
+The project is designed around measurable retrieval quality, reliability, and operational safety—not only a single LLM call.
+
+| Area | Implementation | Measurable impact |
+|---|---|---|
+| **Context efficiency** | Qdrant retrieves 15 candidates; FlashRank reranks to the top 5 | **67% fewer context chunks** reach the responder |
+| **Retrieval quality** | Local `all-mpnet-base-v2` embeddings + FlashRank cross-encoder | **5 relevant sources returned** in the verified HPA query |
+| **Embedding reliability** | Gemini 3,072-dim path with local 768-dim fallback | Runtime dimension validation prevents incompatible searches |
+| **Safety** | Deterministic fast path + NeMo Guardrails for ambiguous prompts | Jailbreak/off-topic prompts are stopped before RAG execution |
+| **Conversation efficiency** | Planner routes conversational turns without retrieval | Greetings and memory-only turns skip vector search |
+| **Operational visibility** | `/health` probes Qdrant, Groq, Guardrails, and Portkey | One endpoint exposes the status of **4 dependencies** |
+| **Caching** | Optional Portkey cache with `HIT`/`MISS` telemetry | Repeat-query savings are measurable when Portkey is configured |
+
+### Verified local run
+
+- FastAPI backend: `http://127.0.0.1:8000` — `/` and `/health` returned **200**
+- Streamlit UI: `http://127.0.0.1:8501` — health endpoint returned **200**
+- Qdrant: **1 collection** reachable; technical retrieval returned **5 ranked documents**
+- Embeddings: `all-mpnet-base-v2` loaded successfully with **768-dimensional vectors**
+- Safety checks: greeting, off-topic, jailbreak, and Kubernetes spelling-variation cases passed
+
+> **Note:** Portkey caching is optional. The direct Groq path is used when `PORTKEY_API_KEY` is not configured, so no cache percentage is claimed by default. Latency, cache-hit rate, and quality percentages should be reported only after collecting them from production traces or a repeatable benchmark.
+
+---
+
 ## 📁 Repository Structure
 
 <table>
@@ -158,7 +185,7 @@ flowchart LR
     B -- PDF --> C[pypdf / pdfplumber]
     B -- HTML --> D[beautifulsoup4]
     B -- DOCX/PPTX --> E[python-docx / python-pptx]
-    C & D & E --> F[✂️ Chunk<br/>1000 chars · 200 overlap]
+    C & D & E --> F[✂️ Paragraph chunks<br/>1500-char target · no overlap]
     F --> G[💾 Cache to processed_data/]
     G --> H{Gemini API healthy?}
     H -- Yes --> I[gemini-embedding-2-preview<br/>3072-dim]
@@ -179,7 +206,7 @@ flowchart LR
 </td></tr>
 <tr><td><b>2</b></td><td>
 
-**Recursive Character Chunking** — breaks text into chunks (target size **1000 characters**, overlap **200**) to ensure high context preservation.
+**Paragraph-Aware Chunking** — groups document paragraphs into chunks with a **1,500-character target**. The current implementation does not add overlap; this keeps ingestion simple and predictable.
 
 </td></tr>
 <tr><td><b>3</b></td><td>
