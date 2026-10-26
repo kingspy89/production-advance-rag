@@ -280,11 +280,12 @@ User Query
 ## 8. Immediate Action Items (Next 1 Week)
 
 1. **Rotate all credentials** — treat `.env` as compromised
-2. **Create `.env.example`** — document required keys
+2. ✅ **Create `.env.example`** — documented 20 required keys and configuration defaults
 3. **Fix README discrepancies** — update chunking size (1500 not 1000), overlap (0 not 200)
-4. **Add embedding dimension validation** — prevent silent data corruption
+4. ✅ **Add embedding dimension validation** — prevents silent vector dimension mismatch/corruption
 5. **Pin dependencies** — use `pip-tools` to lock transitive versions
-6. **Add `/health` endpoint** — basic Qdrant + Groq probes
+6. ✅ **Add `/health` endpoint** — comprehensive dependency probes for Qdrant, Groq, Guardrails & Portkey
+7. ✅ **Hardened Evaluation Suite & Streamlit UI** — resolved LangChain 0.4+ migration breakages, Windows UTF-8 decoding, and pandas cross-version Styler support
 
 ---
 
@@ -375,9 +376,11 @@ Post-update, the system should have:
 │   ├── app.py                         ← Local Streamlit UI (correct)
 │   └── st_cloud_ui.py                 ← Cloud variant (correct)
 ├── evals/
-│   ├── metrics.py                     ← RAGAS evaluation (Phase 2 only, not in CI)
-│   ├── golden_dataset.json            ← Test data (unused)
-│   └── pipeline.py                    ← Eval orchestration (unused)
+│   ├── app.py                         ← Full interactive Streamlit Eval Suite (Step 1-3)
+│   ├── metrics.py                     ← RAGAS evaluation (6 experiments, LangChain 0.4+ shim)
+│   ├── golden_dataset.json            ← Golden test dataset (15 RAG Q&A + 6 Guardrails cases)
+│   ├── pipeline.py                    ← Eval runner & live FastAPI caller (UTF-8 hardened)
+│   └── guardrails_eval.py             ← Safety rail adversarial benchmark evaluation
 └── notebooks/
     ├── 01_guardrails.ipynb            ← Guardrail experimentation
     ├── 02_llm_gateway.ipynb           ← Gateway configuration

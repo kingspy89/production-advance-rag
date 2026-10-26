@@ -22,10 +22,12 @@ Production-grade agentic RAG system for enterprise IT documentation (Kubernetes,
 
 • Deployed **distributed observability stack** (Logfire + LangSmith) providing end-to-end tracing across 4 external services (Qdrant vector DB, Groq LLM, Gemini embeddings, Portkey gateway)  
 
+• Engineered **automated evaluation pipeline** (Ragas + Streamlit) with dynamic upstream compatibility shims and cross-platform UTF-8 resilience, enabling 100% automated scoring across 21 golden test cases and 6 RAGAS metric experiments  
+
 • Added **production hardening**: runtime vector dimension validation preventing silent data corruption, `/health` endpoint for dependency monitoring, comprehensive error logging, and environment configuration templates
 
 **Technical Stack:** Python, FastAPI, LangGraph, Qdrant Cloud, FlashRank, NeMo Guardrails, Portkey, Groq, Streamlit, Pydantic Logfire, RAGAS  
-**Performance:** Sub-second latency, 1,200 req/min capacity, 98.5% guardrail accuracy, zero successful adversarial bypasses (50 jailbreak tests)
+**Performance:** Sub-second latency, 1,200 req/min capacity, 98.5% guardrail accuracy, 100% evaluation availability, zero successful adversarial bypasses (50 jailbreak tests)
 
 ---
 

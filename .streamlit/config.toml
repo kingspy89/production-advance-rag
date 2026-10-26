@@ -1,6 +1,7 @@
 [server]
-fileWatcherType = "none"
+fileWatcherType = "auto"
 headless = true
 
 [client]
-showErrorDetails = "none"
+showErrorDetails = "full"
+
