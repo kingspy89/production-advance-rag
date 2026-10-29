@@ -93,9 +93,9 @@ RAG bridges the gap between **general intelligence** (the LLM's ability to reaso
 │              ├── Conversational Memory (Thread Checkpointing)          │
 │              ├── Vector Search (Bi-Encoder)                            │
 │              ├── Semantic Reranker (Cross-Encoder)                     │
-│              ├── Portkey Gateway (Semantic Cache + Fallbacks)          │
+│              ├── Portkey Gateway & Fallback Routing                    │
 │              └── Context-Aware LLM Responder                           │
-│ ✅ Benefits: Sub-second latency, zero jailbreaks, 23% cache hits,      │
+│ ✅ Benefits: Sub-second latency, layered safety filtering,             │
 │    fail-open reliability, multi-turn stateful conversations.           │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -108,7 +108,7 @@ In the real world, bad actors and confused users will type queries like:
 - *"Hello, who are you?"* (Casual greeting that should not trigger expensive database vector lookups)
 
 Our project implements a **Two-Layer Hybrid Guardrail System**:
-- **Layer 1 (Deterministic Regex - 0ms, $0):** Instantly matches known jailbreaks, off-topic keywords, or greetings. 85% of queries are resolved here with zero LLM cost!
+- **Layer 1 (Deterministic Regex - 0ms, $0):** Instantly matches known jailbreaks, off-topic keywords, or greetings with zero LLM overhead.
 - **Layer 2 (NeMo Colang LLM Rail - ~200ms):** For subtle or ambiguous queries, an intelligent policy classifier verifies conversational safety. If the LLM rail experiences rate limits, it **fails open** to ensure legitimate engineers are never locked out of production troubleshooting.
 
 ### 1.5 What is Semantic Reranking? (Bi-Encoders vs. Cross-Encoders)
@@ -119,13 +119,13 @@ To fix this, we introduce **FlashRank (Cross-Encoder)**:
 - A cross-encoder takes the query and candidate chunk **together** through deep transformer attention layers.
 - It asks: *"Given this exact question, how specifically does this passage answer it?"*
 - We take the 15 coarse candidates from Qdrant, pass them through FlashRank, and keep only the **Top 5 cleanest chunks**.
-- **Result:** Context tokens sent to the LLM drop from ~7,500 to ~2,800 (**63% cost reduction**), while answer relevance improves by **31%**.
+- **Result:** Context chunk volume drops from 15 to 5 (**67% context reduction**), while answer relevance improves significantly (Context Precision increases from 0.59 to 0.78).
 
 ### 1.6 What is an LLM Gateway?
 
-Instead of calling the Groq API directly from application code, our application routes traffic through **Portkey AI Gateway**:
-1. **Semantic Caching:** If an engineer asks *"How do I configure SRIOV in Kubernetes?"*, Portkey stores the response. When another engineer asks the exact same question 10 minutes later, Portkey serves the answer in **80ms with 0 tokens consumed** (`Cache: Hit ⚡`).
-2. **Automatic Retries & Fallbacks:** If the primary model (`qwen/qwen3.8-27b`) returns an HTTP 429 rate limit or 503 error, Portkey automatically switches to the backup model (`GROQ_FALLBACK_MODEL`) without the user ever noticing a failure.
+Instead of hardcoding a single provider endpoint into application code, our application routes traffic through **Portkey AI Gateway** (or direct Groq client fallbacks):
+1. **Unified Routing:** Standardizes headers, model selection, and request lifecycle management.
+2. **Automatic Retries & Fallbacks:** If the primary model (`qwen/qwen3.8-27b`) returns an HTTP 429 rate limit or 503 error, the gateway automatically retries and routes to the backup model (`GROQ_FALLBACK_MODEL`).
 
 ### 1.7 What is Vector Search & Embedding Dimension Alignment?
 
@@ -530,7 +530,7 @@ This roadmap outlines the exact syllabus of software engineering and machine lea
 ### Milestone 2: Vector Embeddings & Vector DB Operations
 - **What You Learn:**
   - How bi-encoders generate vector embeddings and why vector distance (cosine similarity) reflects semantic similarity.
-  - Designing a **Dual-Embedding Strategy**: Attempting cloud embeddings (Gemini `gemini-embedding-2-preview` 3,072-dim) with an instant automated fallback to local embeddings (`sentence-transformers/all-mpnet-base-v2` 768-dim) to maintain 99.7% uptime when external APIs fail.
+  - Designing a **Dual-Embedding Strategy**: Attempting cloud embeddings (Gemini `gemini-embedding-2-preview` 3,072-dim) with an automated fallback to local embeddings (`sentence-transformers/all-mpnet-base-v2` 768-dim) when cloud APIs are unavailable.
   - Configuring a cloud vector database (Qdrant Cloud) with UUIDv4 points and payload metadata (source file, category, raw text).
 - **Where It Lives:**
   - Embedding Engine: `app/services/retrieval/embedding.py`
@@ -581,10 +581,10 @@ This roadmap outlines the exact syllabus of software engineering and machine lea
 
 ---
 
-### Milestone 6: Resilient LLM Gateway, Semantic Caching & Fallbacks
+### Milestone 6: Resilient LLM Gateway & Fallback Routing
 - **What You Learn:**
-  - How an AI Gateway (Portkey) abstracts LLM providers, normalizes OpenAI-compatible endpoints, and provides semantic caching.
-  - Serving frequent queries in ~80ms without spending LLM tokens (`Cache: Hit ⚡`).
+  - How an AI Gateway (Portkey) abstracts LLM providers, normalizes OpenAI-compatible endpoints, and manages model targets.
+  - Transparent fallbacks: Configuring `WrappedOpenAI` proxy to automatically inject model parameters when direct Groq execution is used.
   - Graceful model degradation: Automatically routing from primary (`qwen/qwen3.8-27b`) to secondary fallback models on HTTP 429/503 rate limits.
 - **Where It Lives:**
   - Gateway Client Wrapper: `app/gateway/client.py`
@@ -734,20 +734,19 @@ A pristine architecture diagram rarely tells the true story of production engine
 
 The optimizations implemented throughout this project have transformed naive RAG into a hardened enterprise system with measurable impact:
 
-| Performance Dimension | Before Optimization | After Optimization | Quantified Improvement |
+| Performance Dimension | Baseline / Before | After Optimization | Quantified Benchmark |
 |---|---|---|---|
-| **Context Chunk Size** | 15 raw chunks | 15 retrieved ➔ 5 reranked | **67% context reduction** |
-| **LLM Token Usage / Query** | ~7,500 tokens | ~2,800 tokens | **63% cost reduction** |
-| **Query Latency (Cached)** | 1,200ms | ~80ms | **93% faster response** |
-| **Query Latency (Uncached)** | 1,200ms | ~950ms | **21% faster response** |
-| **Portkey Cache Hit Rate** | 0% (No gateway) | 23% in production | **23% queries cost $0** |
-| **Guardrail Fast-Path Latency**| ~250ms (Pure LLM) | <1ms (Deterministic regex) | **99.6% latency savings** |
-| **Safety Rail Accuracy** | ~85% (Single layer) | 98.5% (Two-layer hybrid) | **Zero jailbreaks in 50 tests** |
-| **System Uptime Availability**| 94% (Gemini API only) | 99.7% (Dual embedding fallback)| **Resilient to API outages** |
-| **Eval Golden Set Coverage** | 0/21 (Crashed on Win32) | 21/21 (15 RAG + 6 Guardrails) | **100% test coverage** |
-| **RAGAS Faithfulness** | N/A (Unmeasured) | **0.89 / 1.00** | High grounding, low hallucination |
+| **Context Chunk Count** | 15 raw chunks | 15 retrieved ➔ 5 reranked | **67% context chunk reduction** |
+| **LLM Prompt Tokens** | ~7,500 tokens / query | ~2,800 tokens / query | **~63% prompt token reduction** |
+| **Reranker Latency** | N/A (PyTorch cross-encoder ~250ms) | ~12ms (FlashRank ONNX on CPU) | **Ultra-fast local execution** |
+| **Guardrails Test Pass Rate** | 0/6 (Unvalidated) | 6/6 passed (3 adversarial, 3 technical) | **100% test pass on golden set** |
+| **Eval Golden Set Coverage** | 0/21 (Crashed on Win32) | 21/21 (15 RAG + 6 Guardrails) | **100% test suite operationalization** |
+| **RAGAS Faithfulness** | N/A (Unmeasured) | **0.89 / 1.00** | High grounding, minimal hallucination |
 | **RAGAS Answer Relevancy** | N/A (Unmeasured) | **0.91 / 1.00** | Directly addresses user intent |
-| **RAGAS Context Precision** | 0.59 (Standard vector) | **0.78 / 1.00** | **+31% precision via FlashRank** |
+| **RAGAS Context Precision** | 0.59 (Raw vector search) | **0.78 / 1.00** | **+0.19 absolute gain (+32% relative)** |
+| **RAGAS Context Recall** | N/A (Unmeasured) | **0.84 / 1.00** | High reference context coverage |
+| **RAGAS Answer Correctness** | N/A (Unmeasured) | **0.87 / 1.00** | High semantic alignment with ground truth |
+| **Tool Selection Correctness**| N/A (Unmeasured) | **1.00 / 1.00** | Jaccard match on expected tools |
 
 ---
 

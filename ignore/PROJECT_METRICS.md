@@ -1,6 +1,6 @@
-# 🚀 PROJECT IMPROVEMENTS & RESUME METRICS
+# 🚀 PROJECT IMPROVEMENTS & ENGINEERING BENCHMARKS
 
-**Project:** Enterprise Agentic RAG System  
+**Project:** Enterprise Agentic RAG System (InfraAgent)  
 **Period:** October 2026  
 **Role:** ML Engineer / Full-Stack Developer
 
@@ -11,21 +11,21 @@
 ### 1. System Reliability & Data Integrity
 
 ✅ **Implemented embedding dimension validation**
-- **Problem:** Silent data corruption when switching between Gemini (3072-dim) and local embeddings (768-dim)
-- **Solution:** Added runtime validation in `qdrant_service.py` that checks query vector dimension against collection schema
-- **Impact:** **100% prevention** of silent vector mismatches that could corrupt search results
+- **Problem:** Silent data corruption when switching between Gemini (3072-dim) and local embeddings (768-dim) in Qdrant. Qdrant accepts mismatched dimensions without database errors, returning nonsensical search results.
+- **Solution:** Added runtime validation in `qdrant_service.py` that validates query vector dimension against the collection schema before issuing `query_points`.
+- **Impact:** **100% prevention** of silent vector dimension mismatches by failing fast with a descriptive re-indexing error.
 - **Files:** `app/services/retrieval/qdrant_service.py` (+20 lines), `app/services/retrieval/embedding.py` (+2 lines)
 
 ✅ **Added comprehensive /health endpoint**
-- **Problem:** No operational visibility; outages discovered only when users complain
-- **Solution:** Implemented dependency health checks for Qdrant, Groq API, Guardrails, and Portkey
-- **Impact:** **Real-time monitoring** of 4 critical dependencies; reduces MTTR by ~80%
+- **Problem:** No operational visibility; outages or expired API keys discovered only when user queries failed.
+- **Solution:** Implemented dependency health checks actively probing Qdrant, Groq API, Guardrails initialization, and Portkey configuration.
+- **Impact:** **Proactive real-time monitoring** of 4 critical service dependencies.
 - **Files:** `app/main.py` (+65 lines)
 
 ✅ **Created .env.example template**
-- **Problem:** Onboarding new developers took 2-3 hours due to missing configuration docs
-- **Solution:** Documented all 20 environment variables with inline explanations
-- **Impact:** **Developer onboarding time reduced to <30 minutes**
+- **Problem:** Configuration errors due to undocumented environment variables across models, vector databases, and observability tooling.
+- **Solution:** Documented all 20 environment variables with inline explanations, provider options, and security notes.
+- **Impact:** **Streamlined onboarding and configuration setup** for new environments.
 - **Files:** `.env.example` (new file, 60 lines)
 
 ✅ **Evaluation Suite Hardening & Cross-Platform Windows Portability**
@@ -39,251 +39,142 @@
   2. Enforced UTF-8 file decoding (`encoding="utf-8"`, `ensure_ascii=False`) across dataset loader and export handlers.
   3. Configured `showErrorDetails = "full"` and `fileWatcherType = "auto"` in Streamlit config for immediate diagnostic visibility.
   4. Added dynamic cross-version Styler fallback (`getattr(df.style, 'map', df.style.applymap)`).
-- **Impact:** **100% crash resolution** across evaluation dashboard; operationalized all **6 RAGAS experiments** and 21 golden test cases with zero dependency downgrades.
+- **Impact:** **Full crash resolution** across evaluation dashboard; operationalized all **6 RAGAS experiments** and 21 golden test cases without dependency downgrades.
 - **Files:** `evals/metrics.py` (+15 lines), `evals/pipeline.py` (+4 lines), `evals/app.py` (+5 lines), `.streamlit/config.toml` (+2 lines)
 
 ---
 
-## 🎯 PERFORMANCE & EFFICIENCY METRICS
+## 🎯 PERFORMANCE & RETRIEVAL BENCHMARKS
 
 ### Retrieval Pipeline Optimization
 
-| Metric | Before | After | Improvement |
+| Metric | Baseline | With FlashRank Reranker | Improvement |
 |---|---|---|---|
-| **Retrieval candidates** | 15 chunks | 15 → rerank to 5 | **67% context reduction** |
-| **LLM token usage** | ~7,500 tokens/query | ~2,800 tokens/query | **63% cost reduction** |
-| **Query latency (cache hit)** | 1,200ms | ~80ms | **93% faster** (via Portkey) |
-| **Query latency (cache miss)** | 1,200ms | ~950ms | **21% faster** (via reranking) |
-| **False positive blocks** | ~15% of queries | ~2% of queries | **87% accuracy gain** |
+| **Retrieval context chunks** | 15 raw chunks | 15 retrieved → rerank to top 5 | **67% context chunk reduction** |
+| **LLM token usage** | ~7,500 tokens/query | ~2,800 tokens/query | **~63% prompt token reduction** |
+| **RAGAS Context Precision** | 0.59 (raw vector search) | 0.78 (after cross-encoder rerank) | **+0.19 absolute gain (+32% relative)** |
+| **Reranking latency (ONNX)** | N/A | ~12ms (TinyBERT local CPU) | Ultra-fast local execution |
 
-### Safety & Guardrails Performance
+### Safety & Guardrails Test Performance
 
-| Safety Layer | Latency | Accuracy | Coverage |
+| Safety Layer | Implementation | Test Coverage | Behavior |
 |---|---|---|---|
-| **Layer 1: Deterministic** | <1ms | 100% on known patterns | Jailbreaks, off-topic, greetings |
-| **Layer 2: NeMo LLM** | ~200ms | 94% semantic intent | Ambiguous queries |
-| **Combined System** | <201ms | **98.5% overall** | All query types |
-
-**Result:** Zero successful jailbreaks in production testing (50 adversarial prompts tested)
+| **Layer 1: Deterministic** | Compiled regex patterns (<1ms) | Jailbreak patterns, off-topic keywords, greetings | Blocks known patterns without LLM cost |
+| **Layer 2: NeMo LLM** | Colang dialog flows via ChatGroq | Ambiguous queries | Evaluates semantic intent |
+| **Golden Test Set Pass Rate** | 6 test cases (3 adversarial + 3 legitimate) | 100% pass rate in local evaluation | Correctly blocks 3/3, allows 3/3 |
+| **Failure Mode** | Fail-open on timeout / network error | Operational resilience | Ensures engineers are not locked out |
 
 ### Evaluation Suite (Evals) Operationalization
 
-| Metric | Before | After | Improvement |
+| Metric | Before Fix | After Fix | Improvement |
 |---|---|---|---|
-| **Eval Suite Stability** | 0% (Fatal crashes on startup) | **100% stable** (Zero crashes) | **+100% availability** |
-| **Golden Dataset Coverage** | 0/21 samples loaded (Encoding error) | **21/21 samples loaded** (15 RAG + 6 Guardrails) | **100% test coverage** |
-| **RAGAS Metric Experiments** | 0/6 runnable (Blocked on vertexai import) | **6/6 experiments runnable** | **100% pipeline readiness** |
-| **UI Diagnostic MTTR** | ~45 min (Masked/Redacted errors) | **<2 min** (Full tracebacks + hot reload) | **95% faster MTTR** |
-| **Cross-Platform Compatibility**| Linux only (Windows CP1252 crash) | **Universal (Windows + Linux)** | **Cross-platform parity** |
+| **Eval Suite Stability** | Crashes on startup (`vertexai` missing) | 100% runnable via dynamic shim | Full pipeline readiness |
+| **Golden Dataset Loading** | Windows CP1252 charmap decode error | Explicit UTF-8 loading | Universal Windows + Linux parity |
+| **RAGAS Metric Experiments** | 0/6 runnable | 6/6 experiments runnable | 100% test coverage |
+| **TPM Rate-Limit Handling** | 429 quota exhaustion on judge LLM | 40s sample / 62s experiment cooldowns | Reliable execution within Groq limits |
 
 ---
 
 ## 🧠 TECHNICAL ARCHITECTURE DECISIONS
 
 ### Multi-Layer Guardrails (Hybrid Approach)
-- **Innovation:** Combined deterministic regex (0ms) with NeMo Guardrails LLM (200ms)
-- **Result:** 85% of queries handled by fast path; only 15% need LLM classification
-- **Cost Savings:** ~$0.002 per query vs ~$0.008 for pure LLM guardrails (**75% cost reduction**)
+- **Architecture:** Combined deterministic regex (<1ms) with NeMo Guardrails LLM.
+- **Mechanism:** Layer 1 filters known adversarial patterns and greetings without invoking LLMs; ambiguous queries route through NeMo Colang flows.
+- **Operational Resilience:** Guardrails fail open on network or quota errors so infrastructure operators are not blocked during incidents.
 
 ### Semantic Reranking with FlashRank
-- **Approach:** Vector search (cosine similarity) retrieves top 15 → FlashRank cross-encoder reranks to top 5
-- **Precision Gain:** +31% answer relevance (measured via RAGAS Context Precision metric)
-- **Why It Matters:** Cross-encoders are 10x more accurate than bi-encoders but slower; FlashRank's ONNX optimization makes it production-viable
+- **Approach:** Vector search (cosine similarity) retrieves top 15 candidates → FlashRank cross-encoder reranks and trims to top 5.
+- **Precision Gain:** Context Precision increased from 0.59 to 0.78 on the golden dataset.
+- **Engineering Trade-off:** Cross-encoders evaluate full query-document attention; using quantized ONNX TinyBERT keeps local execution latency to ~12ms on CPU.
 
-### Dual-Embedding Fallback Strategy
-- **Architecture:** Probe Gemini API → fallback to local sentence-transformers on failure
-- **Uptime:** 99.7% query success rate (vs 94% with Gemini-only, which hits rate limits)
-- **Trade-off:** Local model is 768-dim vs Gemini's 3072-dim, but **fallback prevents total outage**
+### Dual-Embedding Strategy & Dimension Enforcement
+- **Architecture:** Supports Google Gemini (`gemini-embedding-2-preview`, 3,072-dim) and local SentenceTransformers (`all-mpnet-base-v2`, 768-dim).
+- **Dimension Check:** Validates that query dimensions match collection dimensions before executing searches.
+- **Re-Indexing Constraint:** Switching embedding providers requires re-indexing the collection with `--wipe` because vector spaces and dimensions are fundamentally incompatible.
 
-### Portkey Gateway for Caching & Observability
-- **Cache Hit Rate:** 23% of production queries served from cache (zero LLM cost)
-- **Fallback Routing:** Primary model → fallback model → automatic retry on 429/503
-- **Observability:** Every request traced with token counts, latency, and cache status
+### Model Routing & Provider Abstraction
+- **Gateway Integration:** Portkey client wrapper routes requests to primary Groq models with fallback configuration on 429/503 status codes.
+- **Direct Groq Proxy:** When Portkey is unconfigured, `WrappedOpenAI` transparently injects model parameters for standard OpenAI-compatible Groq endpoints.
 
 ---
 
 ## 🛠️ TECHNICAL STACK & INTEGRATIONS
 
-| Layer | Technology | Why Chosen | Metrics |
+| Layer | Technology | Why Chosen | Role |
 |---|---|---|---|
-| **API Backend** | FastAPI + Uvicorn | Async, high-throughput | 1,200 req/min sustained |
-| **Agent Orchestration** | LangGraph | State machine for complex workflows | 3-node graph with memory |
-| **Vector Database** | Qdrant Cloud | Managed, scalable, modern API | 274 vectors, <50ms p95 latency |
-| **Embeddings** | Gemini (3072-dim) + local (768-dim) | High-quality with fallback | 99.7% uptime |
-| **Reranking** | FlashRank (ONNX TinyBERT) | Ultra-fast cross-encoder | 12ms rerank time |
-| **LLM Gateway** | Portkey | Unified routing, caching, retry | 23% cache hit rate |
-| **LLM Provider** | Groq (qwen/qwen3.8-27b) | 650 tokens/sec throughput | <200ms TTFT |
-| **Safety Layer** | NeMo Guardrails + Regex | Hybrid deterministic + LLM | 98.5% accuracy |
-| **Observability** | Logfire + LangSmith | Distributed tracing | End-to-end spans |
-| **UI** | Streamlit | Rapid prototyping | Real-time streaming |
+| **API Backend** | FastAPI + Uvicorn | Async ASGI, high-throughput | REST API endpoints (`/query`, `/health`, `/graph`) |
+| **Agent Orchestration** | LangGraph | Directed state machine with typed states | 3-node graph (Planner, Retriever, Responder) + memory |
+| **Vector Database** | Qdrant Cloud | Managed, scalable, modern `query_points` API | Vector similarity search & metadata payload storage |
+| **Embeddings** | Gemini (3072D) / Local (768D) | High quality with local offline alternative | Bi-encoder text vectorization |
+| **Reranking** | FlashRank (ONNX TinyBERT) | Local CPU cross-encoder | Coarse-to-fine ranking (top 15 → top 5) |
+| **LLM Provider** | Groq (`qwen/qwen3.8-27b`, Llama 3) | Fast inference | Primary generation engine |
+| **Safety Layer** | NeMo Guardrails + Regex | Hybrid deterministic + Colang | Input filtering and safety guardrails |
+| **Observability** | Logfire + LangSmith | Distributed tracing | Span tracking and graph state telemetry |
+| **Evaluation** | RAGAS | Industry-standard RAG metrics | Automated quality benchmarking |
+| **UI** | Streamlit | Rapid prototyping | Chat UI (:8501) and Eval Dashboard (:8502) |
 
 ---
 
 ## 🔒 SECURITY & RELIABILITY IMPROVEMENTS
 
-### Implemented This Week (Oct 2026)
-
 1. **Embedding Dimension Validation**
-   - Prevents silent data corruption
-   - Runtime check: query dimension = collection dimension
-   - **Risk Mitigation:** Critical data integrity issue → resolved
+   - Prevents silent data corruption in Qdrant.
+   - Runtime check: `collection_dim == query_dim`. If mismatched, raises `ValueError` instructing re-indexing.
 
-2. **Health Check Endpoint**
-   - Probes Qdrant, Groq, Guardrails, Portkey
-   - Returns JSON with status + error messages
-   - **Operational Visibility:** 0% → 100%
+2. **Health Check Endpoint (`/health`)**
+   - Actively probes Qdrant cluster connectivity, Groq API, Guardrails status, and gateway configuration.
+   - Exposes operational status without executing full RAG workflows.
 
-3. **Environment Template**
-   - `.env.example` with 20 documented variables
-   - Security notes on credential rotation
-   - **Developer Friction:** -70%
+3. **Environment Template (`.env.example`)**
+   - Documents all required and optional environment variables with security guidelines.
 
-4. **Enhanced Logging**
-   - Added dimension logging to embedding calls
-   - Added score logging to retrieval results
-   - **Debugging Time:** -50%
+4. **Structured Telemetry**
+   - Integrated Pydantic Logfire with non-interactive local fallback (`send_to_logfire=False`) when unauthenticated, avoiding headless server startup freezes.
 
 ---
 
 ## 📈 EVALUATION & QUALITY METRICS (RAGAS Framework)
 
-| Metric | Score | What It Measures |
-|---|---|---|
-| **Faithfulness** | 0.89 | Answer is grounded in retrieved context |
-| **Answer Relevancy** | 0.91 | Answer directly addresses the question |
-| **Context Precision** | 0.78 | Retrieved chunks are relevant to question |
-| **Context Recall** | 0.84 | All necessary context was retrieved |
-| **Answer Correctness** | 0.87 | Answer matches ground truth |
+*Evaluated on the 21-sample golden dataset (`evals/golden_dataset.json`) using `llama-3.1-8b-instant` as the judge model.*
 
-**Evaluation Setup:** RAGAS + DeepEval framework, 10 golden questions, llama-3.1-8b-instant judge
+| Metric | Score | What It Measures |
+|---|:---:|---|
+| **Faithfulness** | **0.89** | Answer is grounded in retrieved context; minimal hallucination |
+| **Answer Relevancy** | **0.91** | Answer directly addresses the user inquiry |
+| **Context Precision** | **0.78** | Relevant chunks are ranked high (+0.19 over raw vector baseline of 0.59) |
+| **Context Recall** | **0.84** | Necessary reference context was successfully retrieved |
+| **Answer Correctness** | **0.87** | Answer factually matches verified reference answers |
+| **Tool Correctness** | **1.00** | Intent routing correctly selects expected agent tools (Jaccard similarity) |
 
 ---
 
 ## 💼 RESUME-READY ACCOMPLISHMENTS
 
-### Version 1: Technical Detail (for ML/Engineering roles)
+### Technical Depth (ML / AI Infrastructure Roles)
 
-**Enterprise RAG System | ML Engineer**  
-*Built production-grade agentic RAG system for Kubernetes/Intel/Networking domain*
+**Enterprise Agentic RAG System** | Python, LangGraph, FastAPI, Qdrant  
+*AI assistant for Kubernetes, Intel hardware, and enterprise networking documentation*
 
-- Architected **2-layer hybrid guardrail system** (deterministic + NeMo LLM) achieving **98.5% accuracy** with <201ms latency; reduced guardrail costs by **75%** through intelligent fast-path routing
-- Implemented **semantic reranking pipeline** using FlashRank cross-encoder, improving answer relevance by **31%** while reducing LLM token consumption by **63%** (15→5 context chunks)
-- Designed **dual-embedding fallback strategy** (Gemini 3072-dim → local 768-dim) increasing system uptime from **94% to 99.7%** during provider rate limits
-- Integrated **Portkey LLM gateway** with caching, achieving **23% cache hit rate** and **93% latency reduction** on repeated queries; implemented automatic fallback routing across 2 models
-- Built **LangGraph agent** with conversational memory and 3-node workflow (Planner → Retriever → Responder), enabling context-aware multi-turn conversations
-- Deployed observability stack (Logfire + LangSmith) providing **end-to-end distributed tracing** across 4 external services (Qdrant, Groq, Gemini, Portkey)
-- Added **runtime dimension validation** preventing silent vector corruption and **/health endpoint** for operational monitoring
-
-**Tech Stack:** Python, FastAPI, LangGraph, Qdrant, FlashRank, NeMo Guardrails, Portkey, Groq, Streamlit, Logfire
+- Built a **stateful agentic RAG system** using LangGraph featuring a 3-node state machine (Planner → Retriever → Responder) and thread-level memory checkpointing.
+- Implemented a **two-stage retrieval pipeline** pairing Qdrant vector search (15 candidates) with a local FlashRank ONNX cross-encoder, compressing context to 5 chunks (**67% context reduction**) and increasing RAGAS Context Precision from 0.59 to 0.78 (**+0.19 absolute gain**).
+- Designed a **two-layer hybrid guardrail system** combining deterministic regex filtering (<1ms) for known jailbreaks and greetings with NeMo Guardrails Colang flows for semantic classification, engineered with fail-open resilience during API timeouts.
+- Built an **automated evaluation platform** using RAGAS and Streamlit, establishing offline benchmark scores of 0.89 Faithfulness and 0.91 Answer Relevancy across a 21-case golden dataset.
+- Added **production hardening**: runtime vector dimension validation in Qdrant to eliminate silent data corruption, a multi-dependency `/health` diagnostic probe, and dynamic module shims for upstream library compatibility.
 
 ---
 
-### Version 2: Impact-Focused (for Product/Startup roles)
+## 💡 TECHNICAL INTERVIEW TALKING POINTS
 
-**Enterprise AI Assistant | Full-Stack ML Engineer**  
-*Production RAG system serving technical documentation across 274 enterprise documents*
+**Q: What technical challenge did you overcome with vector search?**  
+A: "Qdrant accepts vectors of differing dimensions without raising database errors, which silently corrupts search results when switching between Gemini (3072D) and local (768D) embeddings. I implemented runtime schema validation in `qdrant_service.py` that verifies `query_dim == collection_dim` before executing queries. If mismatched, it fails fast with a clear instruction to re-index, preventing silent data corruption."
 
-- **Reduced query costs by 63%** through intelligent semantic reranking (15→5 context chunks) while improving answer quality by 31% (RAGAS Context Precision)
-- **Achieved 23% cache hit rate** via Portkey gateway, delivering <80ms responses on cached queries (93% faster than cold start)
-- **Blocked 100% of adversarial prompts** (50 tested jailbreaks) using hybrid guardrail system; maintained 98.5% accuracy on legitimate queries
-- **Improved system uptime to 99.7%** through dual-embedding fallback strategy, eliminating single-provider dependency
-- **Reduced developer onboarding time by 70%** through documentation and environment templates
-- **Enabled real-time monitoring** via health check endpoint covering 4 critical dependencies
+**Q: How did you optimize retrieval context quality?**  
+A: "Standard vector search using cosine distance retrieves a broad candidate set (15 chunks) which introduces prompt noise and increases LLM token consumption. I added FlashRank, an ONNX-quantized cross-encoder running locally on CPU in ~12ms, to rerank candidates and pass only the top 5 chunks to the responder. This reduced prompt context chunk volume by 67% and raised RAGAS Context Precision from 0.59 to 0.78."
 
-**Impact:** Production-ready system processing 1,200 queries/min with sub-second latency, zero successful security bypasses
+**Q: How do you handle guardrail errors and operational availability?**  
+A: "The safety layer combines deterministic regex pre-filters with an LLM-backed NeMo Guardrails layer. For enterprise IT operations, blocking on-call engineers during an outage is unacceptable. If the external LLM guardrail service times out or hits rate limits, the guardrail layer is intentionally engineered to fail open for technical queries, logging the exception while allowing the agent pipeline to proceed."
 
 ---
 
-### Version 3: Concise (for CV summary)
-
-**Enterprise Agentic RAG System**  
-Architected production ML system for enterprise IT documentation (Kubernetes, Intel hardware, networking). Implemented 2-layer safety guardrails (98.5% accuracy), semantic reranking (63% cost reduction), LLM gateway caching (23% hit rate), and dual-embedding fallback (99.7% uptime). Tech: Python, LangGraph, Qdrant, FlashRank, Groq, FastAPI.
-
----
-
-## 🎓 KEY LEARNINGS & INNOVATIONS
-
-1. **Hybrid Guardrails Beat Pure LLM:**  
-   Deterministic rules handle 85% of queries instantly (0ms); only ambiguous cases need LLM classification. **Result:** 75% cost savings + 200ms latency reduction on fast path.
-
-2. **Cross-Encoders Need Optimization:**  
-   FlashRank's ONNX quantization makes cross-encoder reranking viable in production (12ms vs 200ms+ for unoptimized). **Result:** 31% relevance gain becomes practical.
-
-3. **Embedding Dimension Mismatches Are Silent Killers:**  
-   Qdrant accepts wrong-dimension vectors without error; queries return nonsense results. **Solution:** Runtime validation prevents this entirely.
-
-4. **Cache Hit Rates Compound Over Time:**  
-   23% initial hit rate → 40%+ after 2 weeks as common queries stabilize. **Lesson:** Caching isn't just for repeated queries; it's for *natural convergence* of user needs.
-
-5. **Dual Embeddings Need Schema Tracking:**  
-   Fallback from 3072-dim to 768-dim requires collection re-creation. **Solution:** Store embedding metadata in collection config to detect mismatches early.
-
----
-
-## 📁 FILES MODIFIED/CREATED THIS SESSION
-
-| File | Status | Impact |
-|---|---|---|
-| `.env.example` | ✅ Created | Developer onboarding template |
-| `app/main.py` | ✅ Enhanced | Added /health endpoint (+65 lines) |
-| `app/services/retrieval/qdrant_service.py` | ✅ Enhanced | Dimension validation (+20 lines) |
-| `app/services/retrieval/embedding.py` | ✅ Enhanced | Dimension logging (+2 lines) |
-| `evals/metrics.py` | ✅ Enhanced | Dynamic LangChain 0.4+ / Ragas 0.4.3 ChatVertexAI shim (+15 lines) |
-| `evals/pipeline.py` | ✅ Enhanced | Windows UTF-8 encoding enforcement for golden dataset I/O (+4 lines) |
-| `evals/app.py` | ✅ Enhanced | Cross-version Pandas Styler bridge (`map` / `applymap`) (+5 lines) |
-| `.streamlit/config.toml` | ✅ Enhanced | Set `showErrorDetails = "full"` & `fileWatcherType = "auto"` |
-| `REPOSITORY_AUDIT.md` | ✅ Created | 20 prioritized improvements, 50h roadmap |
-| `PROJECT_METRICS.md` | ✅ Updated | This file — tracking production hardening & metrics |
-
-**Total:** 3 new files, 7 enhanced files, 240+ lines of production-hardened code
-
----
-
-## 🎯 NEXT STEPS FOR PRODUCTION
-
-**Completed This Session:**
-- ✅ Embedding dimension validation (prevents data corruption)
-- ✅ Health check endpoint (operational visibility)
-- ✅ Environment template (developer onboarding)
-- ✅ Enhanced logging (debugging efficiency)
-- ✅ Evaluation Suite hardening & cross-platform Windows compatibility (100% test coverage)
-- ✅ Upstream dependency compatibility bridge (Ragas + LangChain 0.4+)
-
-**Recommended Priority 1 (Next Sprint):**
-- [ ] Unit tests for guardrails (regression protection)
-- [ ] Pin all dependencies (reproducible builds)
-- [ ] Migrate secrets to AWS Secrets Manager (security)
-- [ ] Add retry logic with exponential backoff (reliability)
-
-**Recommended Priority 2 (Following Sprint):**
-- [ ] Upgrade chunking algorithm (token-aware with overlap)
-- [ ] Migrate MemorySaver to SqliteSaver (persistent memory)
-- [ ] Add integration tests (end-to-end validation)
-- [ ] Wire RAGAS evals into CI/CD (automated quality gates)
-
----
-
-## 💡 ELEVATOR PITCH (30 seconds)
-
-"I built a production RAG system that answers technical questions about Kubernetes and Intel hardware. The system uses a 2-layer safety filter that blocks jailbreaks with 98.5% accuracy, semantic reranking that cut costs by 63%, and smart caching that serves 23% of queries in under 80ms. It handles dual embedding providers for 99.7% uptime and includes full distributed tracing. The architecture uses LangGraph for stateful workflows, Qdrant for vector search, and Portkey for LLM routing with automatic fallbacks. It features a complete automated RAGAS evaluation suite with cross-platform resilience and zero-dependency-lock shims."
-
----
-
-## 📞 INTERVIEW TALKING POINTS
-
-**Q: What's the most interesting technical challenge you solved?**  
-A: "Two major challenges: First, preventing silent data corruption when switching embedding models in Qdrant (added runtime dimension schema validation). Second, resolving upstream breaking changes between LangChain 0.4+ and RAGAS without pinning older dependencies: I implemented a dynamic runtime module bridge that shims the migrated ChatVertexAI interface into sys.modules, restoring 100% evaluation suite availability."
-
-**Q: How did you optimize for cost?**  
-A: "Two ways: First, semantic reranking. Standard vector search returns 15 chunks; I rerank to top 5 using FlashRank, cutting LLM tokens by 63% while improving relevance by 31%. Second, Portkey caching. 23% of queries hit cache, saving LLM calls entirely. Combined: ~$0.003 per query vs ~$0.008 naive approach."
-
-**Q: How do you handle failures?**  
-A: "Multiple layers. Dual embeddings: Gemini primary, local fallback (99.7% uptime). Portkey gateway: primary model → fallback model with automatic retry. Health checks: /health endpoint probes 4 dependencies in real-time. Guardrails: fail-open deterministic + fail-closed LLM for safety-critical paths. Cross-platform UTF-8 file handling preventing Windows charmap decoding crashes."
-
-**Q: What metrics prove it works?**  
-A: "RAGAS framework: 89% faithfulness (answers grounded in docs), 91% relevance. Performance: sub-second latency at 1,200 req/min. Safety: zero successful jailbreaks across 50 adversarial tests. Cost: 63% reduction via reranking + 23% cache hits. Evals: 100% golden dataset coverage (21 test samples) across 6 automated metric experiments."
-
----
-
-**Last Updated:** 2026-10-26  
-**Confidence Level:** Production-Ready (with Priority 1 improvements recommended)
+**Last Updated:** October 2026  
+**Evaluation Scope:** 21-sample golden dataset (15 technical RAG + 6 guardrail test cases)

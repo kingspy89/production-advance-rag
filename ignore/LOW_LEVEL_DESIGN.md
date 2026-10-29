@@ -57,11 +57,11 @@
 The **Enterprise Agentic RAG** system is engineered to deliver high-precision, sub-second technical answers across deep IT domains (Kubernetes clusters, Intel hardware accelerators, SRIOV, BGP, and SDN networking).
 
 ### Key Architectural Tenets:
-1. **Two-Layer Hybrid Guardrails:** Deterministic zero-latency regex matching (Layer 1) eliminates 85% of non-technical overhead; ambiguous queries route through an LLM-backed NeMo Colang engine (Layer 2).
+1. **Two-Layer Hybrid Guardrails:** Deterministic zero-latency regex matching (Layer 1) filters known jailbreaks, off-topic requests, and greetings; ambiguous queries route through an LLM-backed NeMo Colang engine (Layer 2) with a fail-open posture during API interruptions.
 2. **Stateful Graph Orchestration:** LangGraph state machine maintaining conversational memory via `MemorySaver` thread checkpointing.
-3. **High-Precision Retrieval Hierarchy:** Bi-encoder vector search in Qdrant retrieves 15 candidates; a quantized local cross-encoder (`FlashRank` ONNX TinyBERT) reranks and compresses to the top 5 chunks (63% token reduction, +31% precision).
-4. **Resilient Dual-Embedding Strategy:** Dynamic probe for Gemini `gemini-embedding-2-preview` (3072-dim) with an instant automated fallback to local HuggingFace `all-mpnet-base-v2` (768-dim) for 99.7% availability.
-5. **Gateway Routing & Semantic Caching:** Portkey AI gateway integration delivering 23% cache hit rates with automatic retries on HTTP 429/503.
+3. **High-Precision Retrieval Hierarchy:** Bi-encoder vector search in Qdrant retrieves 15 candidates; a quantized local cross-encoder (`FlashRank` ONNX TinyBERT) reranks and compresses to the top 5 chunks (67% chunk reduction, +0.19 Context Precision improvement).
+4. **Dual-Embedding Support & Dimension Validation:** Probes Gemini `gemini-embedding-2-preview` (3072-dim) with local SentenceTransformers fallback (`all-mpnet-base-v2`, 768-dim), enforcing query-time collection dimension validation to prevent silent vector mismatches.
+5. **Gateway Routing & Fallbacks:** Portkey AI gateway integration and transparent `WrappedOpenAI` proxy providing fallback model routing and automatic retries on HTTP 429/503.
 
 ---
 
@@ -781,7 +781,7 @@ Abstracts provider routing between Portkey AI Gateway (when configured) and dire
 | Component | Failure Mode | Trigger Condition | Mitigation / Fallback Mechanism | Impact on User |
 |---|---|---|---|---|
 | **Layer 2 Guardrails** | NeMo Timeout / Groq Rate Limit | Groq API down or 429 quota exhaustion | **Fail-Open:** Catches exception, logs warning, passes query to LangGraph | Zero outage; technical query processed safely |
-| **Embedding Engine** | Gemini Quota Exhaustion | HTTP 429 / ResourceExhausted | Exponential backoff (1s-8s) -> Fallback to local `all-mpnet-base-v2` | Query latency increases slightly; 99.7% uptime maintained |
+| **Embedding Engine** | Gemini Quota Exhaustion | HTTP 429 / ResourceExhausted | Exponential backoff (1s-8s) with optional fallback to local `all-mpnet-base-v2` | Probes API health; note that changing dimension requires re-indexing collection |
 | **Vector DB** | Vector Dimension Mismatch | Switching embedding models without re-indexing | Query-time dimension validation against Qdrant schema | Fails fast with clear error message; prevents data corruption |
 | **Reranking Engine** | FlashRank ONNX Exception | Cache permission error or memory overflow | Fallback returns raw Qdrant top candidates (`documents[:top_n]`) | Slight reduction in precision; answer still generated |
 | **LLM Gateway** | Primary Model 429/503 | Groq primary model rate limited | Portkey automatic fallback routing to secondary model (`GROQ_SLUG_2`) | Query succeeds transparently |

@@ -55,3 +55,10 @@ tenvv
 
 # Logs
 *.log
+# Internal docs
+ignore/read.md
+ignore/REPOSITORY_AUDIT.md
+read.md
+REPOSITORY_AUDIT.md
+ignore/RESUME_BULLETS.md
+RESUME_BULLETS.md
