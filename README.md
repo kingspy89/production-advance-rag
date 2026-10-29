@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=30&pause=1000&color=6C63FF&center=true&vCenter=true&width=750&lines=InfraAgent+%E2%80%94+Enterprise+Agentic+RAG;LangGraph+%2B+Qdrant+%2B+NeMo+Guardrails;Production-Grade+Infrastructure+AI" alt="InfraAgent Typing SVG" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=6C63FF&height=220&section=header&text=InfraAgent&fontSize=58&fontColor=ffffff&animation=fadeIn&desc=Enterprise%20Agentic%20RAG%20System&descSize=20&descAlignY=62" width="100%" />
+
+<br/>
+
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&pause=1000&color=6C63FF&center=true&vCenter=true&width=750&lines=Production+LangGraph+%2B+Qdrant+%2B+NeMo+Guardrails;Kubernetes+%C2%B7+Intel+Hardware+%C2%B7+Enterprise+Networking;Coarse-to-Fine+RAG+%C2%B7+FlashRank+Reranker" alt="InfraAgent Typing SVG" />
 
 <br/>
 
@@ -97,9 +101,11 @@
 
 </div>
 
-> **The problem:** Standard LLMs hallucinate CLI flags, miss private documentation, and cannot reason over your proprietary infrastructure manuals. Naive RAG floods prompts with 15+ noisy, unranked chunks — increasing cost and degrading answer quality.
->
-> **The solution:** InfraAgent orchestrates a **LangGraph state machine** for intent-aware retrieval, applies **FlashRank cross-encoder reranking** to surgically compress context from 15 → 5 candidates, and enforces a **two-layer NeMo + Regex safety system** to block unsafe inputs before they ever touch the LLM.
+> [!IMPORTANT]
+> **The Enterprise Infrastructure Challenge:** Standard LLMs hallucinate CLI flags, miss private documentation, and cannot reliably operate across proprietary infrastructure manuals. Naive RAG floods prompts with 15+ unranked chunks — increasing token cost and introducing noisy hallucinations.
+
+> [!TIP]
+> **The InfraAgent Approach:** A compiled **LangGraph state machine** plans retrieval, **FlashRank cross-encoder reranking** compresses context from 15 → 5 candidates (67% candidate reduction), and a **two-layer NeMo + Regex safety system** filters unsafe inputs before they ever reach the LLM.
 
 ---
 
@@ -287,7 +293,8 @@ sequenceDiagram
 
 ## 📊 Evaluation & Benchmark Results
 
-> ⚠️ All scores are **offline local evaluation results** — not production-observed metrics. Results are captured in the Streamlit eval session; no results are auto-persisted to disk.
+> [!NOTE]
+> All scores reflect recorded **offline local evaluation results** on the curated 21-sample golden dataset. They are not production-observed metrics. Results are captured in the Streamlit eval session; no results are auto-persisted to disk.
 
 ### 📈 RAGAS Score Overview
 
@@ -329,7 +336,8 @@ Evaluated via `evals/guardrails_eval.py` across the 6 golden safety scenarios (3
 
 </div>
 
-> ⚠️ **Scope:** These 6 scenarios validate correct classification on the curated golden set. They do **not** establish general adversarial robustness across novel injection techniques or the full jailbreak space.
+> [!WARNING]
+> **Scope Limitation:** These 6 test cases validate correct classification on the curated golden safety scenarios. They do **not** establish general adversarial robustness across novel injection techniques or the full jailbreak space.
 
 ### ⚡ Context Reduction Benchmark
 
@@ -644,7 +652,8 @@ streamlit run evals/app.py --server.port 8502
 python -m evals.pipeline
 ```
 
-> 💡 **Rate limit note:** Judge LLM scoring uses 40s inter-sample + 62s inter-experiment cooldowns to stay within Groq's 6,000 TPM free-tier cap. Use a dedicated `JUDGE_GROQ` key to avoid contention with the main API key.
+> [!TIP]
+> **Rate Limit Management:** Judge LLM scoring uses calibrated 40s inter-sample and 62s inter-experiment cooldowns to stay strictly within Groq's 6,000 TPM free-tier cap. Configure a dedicated `JUDGE_GROQ` key to eliminate contention with the primary application key.
 
 ---
 
