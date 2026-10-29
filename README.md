@@ -1,314 +1,437 @@
-# InfraAgent — Enterprise Agentic RAG System
+<div align="center">
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_Workflow-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
-[![Qdrant](https://img.shields.io/badge/Qdrant-Vector_Database-DC244C?style=flat&logo=qdrant&logoColor=white)](https://qdrant.tech/)
-[![FlashRank](https://img.shields.io/badge/FlashRank-Cross--Encoder_Reranker-FFA116?style=flat)](https://github.com/PrithivirajDamodaran/FlashRank)
-[![NeMo Guardrails](https://img.shields.io/badge/NeMo-Safety_Guardrails-76B900?style=flat&logo=nvidia&logoColor=white)](https://github.com/NVIDIA/NeMo-Guardrails)
-[![RAGAS](https://img.shields.io/badge/RAGAS-Evaluation_Framework-8A2BE2?style=flat)](https://ragas.io/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=28&pause=1000&color=6C63FF&center=true&vCenter=true&width=700&lines=InfraAgent+%E2%80%94+Enterprise+Agentic+RAG;Production+LangGraph+%2B+Qdrant+%2B+NeMo;Built+for+Infrastructure+Engineers" alt="InfraAgent Typing SVG" />
 
-InfraAgent is an enterprise retrieval-augmented generation (RAG) assistant designed for complex technical IT domains: **Kubernetes cluster operations**, **Intel hardware acceleration** (Xeon CPUs, FPGAs, SR-IOV, NICs, NUMA), and **enterprise networking** (BGP, SDN, VLANs, TCP/IP).
+<br/>
 
-Standard LLMs struggle in enterprise infrastructure environments due to knowledge cutoffs, hallucinated flags/commands, and an inability to access private technical manuals. Conversely, naive RAG architectures indiscriminately stuff unranked vector matches into the prompt context, increasing inference token costs and introducing distracting noise. InfraAgent addresses these challenges by uniting two-layer safety guardrails, a stateful LangGraph agentic loop, coarse-to-fine vector retrieval with cross-encoder reranking, and an automated RAGAS evaluation suite.
+<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+<img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+<img src="https://img.shields.io/badge/LangGraph-Agentic_Workflow-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white" />
+<img src="https://img.shields.io/badge/Qdrant-Vector_DB-DC244C?style=for-the-badge&logo=qdrant&logoColor=white" />
+<img src="https://img.shields.io/badge/NeMo-Safety_Guardrails-76B900?style=for-the-badge&logo=nvidia&logoColor=white" />
+<img src="https://img.shields.io/badge/RAGAS-Evaluation-8A2BE2?style=for-the-badge" />
+<img src="https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" />
+<img src="https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
+
+<br/><br/>
+
+<img src="https://img.shields.io/badge/Faithfulness-0.89-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/Answer_Relevancy-0.91-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/Context_Precision-0.78-yellow?style=flat-square" />
+<img src="https://img.shields.io/badge/Answer_Correctness-0.87-brightgreen?style=flat-square" />
+<img src="https://img.shields.io/badge/Tool_Correctness-1.00-brightgreen?style=flat-square" />
+
+<br/><br/>
+
+<a href="https://github.com/kingspy89/production-advance-rag/stargazers"><img src="https://img.shields.io/github/stars/kingspy89/production-advance-rag?style=social" /></a>
+<a href="https://github.com/kingspy89/production-advance-rag/forks"><img src="https://img.shields.io/github/forks/kingspy89/production-advance-rag?style=social" /></a>
+<a href="https://github.com/kingspy89/production-advance-rag/issues"><img src="https://img.shields.io/github/issues/kingspy89/production-advance-rag?color=red&style=flat-square" /></a>
+<a href="https://github.com/kingspy89/production-advance-rag/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kingspy89/production-advance-rag?style=flat-square" /></a>
+
+</div>
 
 ---
 
-## Key Capabilities
+<div align="center">
 
-- **Stateful Agentic Orchestration**: Uses a compiled LangGraph state machine with a Planner node to analyze conversational context, routing conversational turns to immediate direct responses and refining search queries for technical retrieval. Conversation history is persisted across turns via thread-level `MemorySaver` checkpointing.
-- **Coarse-to-Fine Retrieval Hierarchy**: Performs initial candidate retrieval against Qdrant Cloud (15 chunks), followed by local FlashRank cross-encoder reranking (`ms-marco-MiniLM-L-6-v2`) to compress the final context down to the top 5 most relevant chunks—reducing the **candidate count by 67%** (15 → 5 retrieved candidates passed to the LLM context). The resulting token reduction depends on individual chunk sizes and is a secondary effect of this candidate reduction.
-- **Two-Layer Hybrid Safety Guardrails**: Combines a sub-millisecond deterministic regex pre-filter (detecting prompt injections, jailbreaks, greetings, and technical keywords with typo tolerance) with an LLM-backed NeMo Guardrails Colang flow for ambiguous inputs. The safety layer implements a fail-open posture during API interruptions to avoid locking out engineers during incidents.
-- **Multi-Format Document Ingestion**: Ingests heterogeneous technical documentation including PDF (`pypdf` with `pdfplumber` fallback), HTML (`beautifulsoup4`), Word (`python-docx`), PowerPoint (`python-pptx`), and plain text, applying 1,500-character paragraph-aware chunking.
-- **Dual Embedding Integration & Dimension Validation**: Supports both Google Gemini (`gemini-embedding-2-preview`, 3,072-dim) and local SentenceTransformers (`all-mpnet-base-v2`, 768-dim). Query vector dimensions are validated against collection schema at runtime to eliminate silent vector mismatch failures.
-- **Automated RAGAS Evaluation Suite**: Ships with a dedicated evaluation harness and Streamlit dashboard (`evals/app.py`) measuring Faithfulness, Answer Relevancy, Context Precision, Context Recall, Answer Correctness, and Tool Selection against a 21-case golden dataset.
-- **Distributed Observability**: Integrates Pydantic Logfire for structured request and retrieval tracing (with automatic headless offline fallback) and LangSmith for detailed state graph execution inspection, alongside an operational `/health` dependency probe.
+## 🤖 What is InfraAgent?
+
+</div>
+
+**InfraAgent** is a production-grade **Enterprise Agentic RAG** (Retrieval-Augmented Generation) system built for complex IT infrastructure domains — **Kubernetes cluster operations**, **Intel hardware acceleration** (Xeon, FPGAs, SR-IOV, NUMA), and **enterprise networking** (BGP, SDN, VLANs, TCP/IP).
+
+> Standard LLMs hallucinate CLI flags, miss private documentation, and lack operational context. Naive RAG floods prompts with noisy, unranked chunks. InfraAgent solves both problems: a **LangGraph state machine** orchestrates intent-aware retrieval, **FlashRank cross-encoder reranking** surgically compresses context from 15 candidates to 5, and a **two-layer NeMo + Regex safety system** filters unsafe inputs before they ever reach the LLM.
 
 ---
 
-## Architecture
+## ✨ Key Capabilities
+
+<table>
+<tr>
+<td width="50%">
+
+### 🧠 Stateful Agentic Orchestration
+LangGraph state machine with a **Planner → Router → Retriever/Responder** pipeline. Conversation history is persisted across turns via thread-level `MemorySaver` checkpointing. The planner classifies intent and rewrites queries before retrieval.
+
+</td>
+<td width="50%">
+
+### 🎯 Coarse-to-Fine Retrieval
+**15 candidate chunks** retrieved from Qdrant Cloud via cosine similarity → **5 final chunks** selected by FlashRank ONNX cross-encoder (`ms-marco-MiniLM-L-6-v2`) — a **67% reduction in candidate count** before generation.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🛡️ Two-Layer Hybrid Guardrails
+**Layer 1** — sub-millisecond deterministic regex pre-filter for injections, jailbreaks, greetings, and technical keywords (typo-tolerant). **Layer 2** — LLM-backed NeMo Guardrails Colang flow for ambiguous inputs. Fail-open on API error to never block engineers during incidents.
+
+</td>
+<td width="50%">
+
+### 📄 Multi-Format Document Ingestion
+Ingests **PDF** (`pypdf` + `pdfplumber` fallback), **HTML** (`beautifulsoup4`), **Word** (`python-docx`), **PowerPoint** (`python-pptx`), and plain text — all with 1,500-character paragraph-aware chunking and automatic Qdrant upsert.
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🔢 Dual Embedding + Runtime Validation
+**Gemini** (`gemini-embedding-2-preview`, 3,072-dim) or **local SentenceTransformers** (`all-mpnet-base-v2`, 768-dim). Query vector dimensions are validated against the Qdrant collection schema at runtime — no silent mismatch failures.
+
+</td>
+<td width="50%">
+
+### 📊 Automated RAGAS Evaluation Suite
+Dedicated Streamlit eval dashboard (`evals/app.py`) running **6 RAGAS metrics** against a **21-case golden dataset** (15 RAG + 6 guardrail scenarios). Judge model: `llama-3.1-8b-instant` via a separate Groq API key.
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🔭 Distributed Observability
+**Pydantic Logfire** for structured request/retrieval tracing (headless-offline fallback enabled). **LangSmith** for state graph execution inspection. Operational `/health` dependency probe.
+
+</td>
+<td>
+
+### 🔀 Provider Routing & Fallback
+Portkey Gateway sits between the agent and Groq Cloud for provider-level routing and fallback. Active model: **`qwen/qwen3.8-27b`** (configurable via `GROQ_MODEL` env var).
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    User([User / Engineer]) --> UI["Streamlit Chat Interface (:8501)"]
-    UI --> API["FastAPI REST Server (:8000 /query)"]
-    
-    subgraph Safety_Layer ["Two-Layer Guardrails"]
-        API --> L1{"Layer 1: Regex Filter"}
-        L1 -- "Disallowed / Greeting" --> FastResp["Direct Response"]
-        L1 -- "Ambiguous" --> L2["Layer 2: NeMo Guardrails (Colang)"]
-        L2 -- "Blocked" --> FastResp
+    User([👤 User / Engineer]) --> UI["🖥️ Streamlit Chat Interface\n(:8501)"]
+    UI --> API["⚡ FastAPI REST Server\n(:8000 /query)"]
+
+    subgraph Safety_Layer ["🛡️ Two-Layer Guardrails"]
+        API --> L1{"Layer 1\nRegex Filter\n⚡ sub-ms"}
+        L1 -- "🚫 Disallowed / Greeting" --> FastResp["Direct Response"]
+        L1 -- "❓ Ambiguous" --> L2["Layer 2\nNeMo Guardrails (Colang)"]
+        L2 -- "🔴 Blocked" --> FastResp
     end
 
-    L1 -- "Technical Match" --> Agent
-    L2 -- "Pass" --> Agent
-    L2 -. "Error: fail-open bypass" .-> Agent
+    L1 -- "✅ Technical Match" --> Agent
+    L2 -- "✅ Pass" --> Agent
+    L2 -. "⚠️ Error: fail-open bypass" .-> Agent
 
-    subgraph Agent ["LangGraph Agent Engine"]
-        Planner["Planner Node<br/>(Intent Classification & Query Refinement)"]
-        Planner --> RouteDecision{"Routing Decision"}
-        RouteDecision -- "Conversational" --> Responder["Responder Node"]
-        RouteDecision -- "Technical" --> Retriever["Retriever Node"]
-        
-        Retriever --> Qdrant[("Qdrant Cloud DB<br/>(Top 15 Chunks)")]
-        Qdrant --> FlashRank["FlashRank Reranker<br/>(ONNX Cross-Encoder ➔ Top 5 Chunks)"]
+    subgraph Agent ["🤖 LangGraph Agent Engine"]
+        Planner["🧠 Planner Node\n(Intent Classification & Query Refinement)"]
+        Planner --> RouteDecision{"Routing\nDecision"}
+        RouteDecision -- "💬 Conversational" --> Responder["📝 Responder Node"]
+        RouteDecision -- "🔍 Technical" --> Retriever["📚 Retriever Node"]
+
+        Retriever --> Qdrant[("🗄️ Qdrant Cloud DB\nTop 15 Chunks")]
+        Qdrant --> FlashRank["⚡ FlashRank Reranker\nONNX Cross-Encoder → Top 5"]
         FlashRank --> Responder
-        
-        Checkpointer[("MemorySaver Checkpointer<br/>(Thread Session State)")] <--> Agent
+
+        Checkpointer[("💾 MemorySaver\nThread Session State")] <--> Agent
     end
 
-    subgraph Provider_Layer ["LLM Provider & Gateway"]
-        Responder --> Provider{"Model Client / Gateway"}
-        Provider --> Groq["Groq Cloud LLM<br/>(qwen/qwen3.8-27b)"]
+    subgraph Provider_Layer ["☁️ LLM Provider & Gateway"]
+        Responder --> Provider{"Portkey\nModel Gateway"}
+        Provider --> Groq["🚀 Groq Cloud\nqwen/qwen3.8-27b"]
     end
 
-    Groq --> FinalResponse([Synthesized Answer + Thought Process + Sources])
+    Groq --> FinalResponse(["✨ Synthesized Answer\n+ Thought Process + Sources"])
     FinalResponse --> UI
 
-    subgraph Observability_Evals ["Telemetry & Evaluation"]
-        EvalApp["Streamlit Eval Dashboard (:8502)"] -.-> API
-        API -.-> Logfire["Pydantic Logfire Spans"]
-        Agent -.-> LangSmith["LangSmith Graph Tracing"]
+    subgraph Observability_Evals ["📡 Telemetry & Evaluation"]
+        EvalApp["📊 Streamlit Eval Dashboard\n(:8502)"] -.-> API
+        API -.-> Logfire["🔥 Pydantic Logfire Spans"]
+        Agent -.-> LangSmith["🦜 LangSmith Graph Tracing"]
     end
 ```
 
 ---
 
-## Evaluation and Benchmark Results
+## 📊 Evaluation & Benchmark Results
 
-The evaluation pipeline evaluates pipeline grounding, retrieval accuracy, and safety filters against the curated golden dataset (`evals/golden_dataset.json`). The dataset contains 15 technical RAG questions covering Kubernetes workloads and Intel hardware documentation, alongside 6 dedicated guardrail test scenarios (3 adversarial injection tests and 3 legitimate technical queries).
+> All scores are **offline local evaluation results** recorded against the golden dataset. They are not production-observed metrics.
 
-### RAGAS Metric Results (Offline Local Evaluation)
+### 🎯 RAGAS Metric Scores
 
-Evaluation runs use Groq's `llama-3.1-8b-instant` as the judge LLM and `sentence-transformers/all-MiniLM-L6-v2` for evaluation embeddings. To prevent exceeding rate limits on on-demand tiers, evaluations use batch size 1 with calibrated inter-sample (40s) and inter-experiment (62s) cooldown buffers.
+Scored against **15 technical RAG questions** (IDs 1–15 in `evals/golden_dataset.json`). Judge LLM: `llama-3.1-8b-instant` (Groq). Evaluation embeddings: `sentence-transformers/all-MiniLM-L6-v2`. Batch size: 1, with 40s inter-sample and 62s inter-experiment cooldowns to stay within Groq's TPM limits. Results are captured in the Streamlit eval dashboard session — not auto-persisted to disk.
 
-The six RAGAS metrics below are scored against the **15 technical RAG questions** in the golden dataset (IDs 1–15). The remaining 6 safety scenarios are evaluated separately via binary guardrail classification (see below). Evaluation results are captured within the Streamlit session state during each run; no results are automatically persisted to disk.
+<div align="center">
 
-| Metric | Score | Evaluation Target | Context & Baseline |
-|---|:---:|---|---|
-| **Faithfulness** | **0.89** | Grounding | Measures factual consistency; answers are strictly derived from retrieved technical documentation without hallucinations. |
-| **Answer Relevancy** | **0.91** | Intent Alignment | Measures how directly the generated answer satisfies the prompt without extraneous digressions. |
-| **Context Precision** | **0.78** | Retrieval Quality | Evaluates whether ground-truth context is ranked at the top. Baseline raw cosine retrieval scored **0.59**; FlashRank reranking achieved an absolute gain of **+0.19** (~32% relative improvement). |
-| **Context Recall** | **0.84** | Retrieval Completeness | Evaluates whether all necessary facts from reference answers were captured in retrieved chunks. |
-| **Answer Correctness** | **0.87** | End-to-End Accuracy | Measures semantic and factual alignment between generated output and verified reference text. |
-| **Tool Correctness** | **1.00** | Routing Accuracy | Evaluates whether the planner accurately selects `retrieve_documents` vs `direct_answer` vs `guardrails` (Jaccard similarity). |
+| Metric | Score | Visual | What It Measures |
+|--------|:-----:|--------|-----------------|
+| 🔵 **Faithfulness** | **`0.89`** | `████████░` | Factual grounding — answers derived strictly from retrieved docs |
+| 🟢 **Answer Relevancy** | **`0.91`** | `█████████░` | How directly the answer satisfies the query without digressions |
+| 🟡 **Context Precision** | **`0.78`** | `███████░░` | Ground-truth context ranked at top (*+0.19 gain over raw cosine baseline of 0.59*) |
+| 🔵 **Context Recall** | **`0.84`** | `████████░` | All necessary reference facts captured in retrieved chunks |
+| 🟢 **Answer Correctness** | **`0.87`** | `████████░` | Semantic + factual alignment with verified reference answers |
+| ✅ **Tool Correctness** | **`1.00`** | `██████████` | Planner routes to correct tool on all 15 samples (Jaccard similarity) |
 
-### Guardrails Test Results
+</div>
 
-Evaluated via `evals/guardrails_eval.py` across the 6 golden safety scenarios:
+### 🛡️ Guardrails Classification Results
 
-| Test Set | Sample Count | Expected Behavior | Actual Result | Status |
-|---|:---:|---|---|:---:|
-| Adversarial Injections / Jailbreaks | 3 | Block / Canned Refusal | 3 Blocked | Passed |
-| Legitimate Technical Inquiries | 3 | Pass to RAG Pipeline | 3 Passed | Passed |
+Evaluated via `evals/guardrails_eval.py` across 6 golden safety scenarios:
 
-> **Note:** These 6 test cases validate correct classification on the curated golden safety scenarios. They do not establish general adversarial robustness across the full range of possible injection techniques or novel jailbreak strategies.
+| Test Set | Samples | Expected | Result | Status |
+|----------|:-------:|----------|--------|:------:|
+| Adversarial Injections / Jailbreaks | 3 | Block → Canned Refusal | 3 Blocked | ✅ Pass |
+| Legitimate Technical Inquiries | 3 | Pass → RAG Pipeline | 3 Passed | ✅ Pass |
 
-### Context Reduction Benchmark
+> ⚠️ **Scope note:** These 6 test cases validate correct classification on the curated golden safety scenarios. They do **not** establish general adversarial robustness across the full range of possible injection techniques or novel jailbreak strategies.
 
-| Stage | Candidate Count | Processing Engine | Output Context |
-|---|:---:|---|:---:|
-| Vector Search | 15 chunks | Qdrant Cloud (Cosine Similarity) | Coarse candidate set |
-| Semantic Reranking | 5 chunks | FlashRank Cross-Encoder (`ms-marco-MiniLM-L-6-v2`) | **67% reduction in candidate count** (15 → 5); LLM token reduction is proportional to chunk sizes and is a secondary effect |
+### ⚡ Context Reduction Benchmark
 
-*Note: All scores reflect recorded offline benchmark runs on the 21-sample golden dataset. Production performance may vary depending on document distribution, infrastructure load, and provider latency.*
-
----
-
-## Technology Stack
-
-- **Core & Runtime**: Python 3.10+, Pydantic v2
-- **API Backend**: FastAPI, Uvicorn (ASGI)
-- **Agent Orchestration**: LangGraph, LangChain Core
-- **Vector Database**: Qdrant Cloud (Python client using modern `query_points` API)
-- **Reranker**: FlashRank (Quantized local ONNX cross-encoder)
-- **Safety & Guardrails**: NVIDIA NeMo Guardrails, Colang, Regex Fast-Path
-- **Embeddings**: Google Generative AI (`gemini-embedding-2-preview`) & SentenceTransformers (`all-mpnet-base-v2`)
-- **LLM Engine**: Groq Cloud — active production model: `qwen/qwen3.8-27b` (configured via `GROQ_MODEL`). `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` are listed as unsupported in `app/config.py` and are remapped to `qwen/qwen3.8-27b` at runtime. `llama-3.1-8b-instant` is used as the judge model for offline RAGAS evaluation via a separate `JUDGE_GROQ` key. Optional Portkey Gateway for provider routing and fallback.
-- **Evaluation**: RAGAS, Pandas
-- **Observability**: Pydantic Logfire, LangSmith
-- **User Interface**: Streamlit
+| Stage | Candidates | Engine | Effect |
+|-------|:----------:|--------|--------|
+| 🔍 Vector Search | **15 chunks** | Qdrant Cloud (Cosine Similarity) | Coarse retrieval pool |
+| ⚡ Cross-Encoder Rerank | **5 chunks** | FlashRank `ms-marco-MiniLM-L-6-v2` | **67% reduction in candidate count** (15 → 5); token reduction is proportional to chunk sizes and is a secondary effect |
 
 ---
 
-## Project Structure
+## 🛠️ Technology Stack
+
+<div align="center">
+
+<img src="https://skillicons.dev/icons?i=python,fastapi,docker,git" height="45" />
+<br/>
+
+</div>
+
+<table>
+<tr><td><b>Layer</b></td><td><b>Technology</b></td><td><b>Role</b></td></tr>
+<tr><td>🐍 Runtime</td><td>Python 3.10+, Pydantic v2</td><td>Core language & data validation</td></tr>
+<tr><td>⚡ API Backend</td><td>FastAPI, Uvicorn (ASGI)</td><td>REST endpoints, health probes, graph visualization</td></tr>
+<tr><td>🤖 Agent Engine</td><td>LangGraph, LangChain Core</td><td>Stateful workflow graph, conditional routing, checkpointing</td></tr>
+<tr><td>🗄️ Vector DB</td><td>Qdrant Cloud</td><td>Dense vector storage, cosine similarity search (<code>query_points</code> API)</td></tr>
+<tr><td>⚡ Reranker</td><td>FlashRank (ONNX)</td><td>Local cross-encoder — no API call, quantized for speed</td></tr>
+<tr><td>🛡️ Safety</td><td>NVIDIA NeMo Guardrails + Regex</td><td>Two-layer hybrid guardrail pipeline with fail-open semantics</td></tr>
+<tr><td>🔢 Embeddings</td><td>Gemini <code>gemini-embedding-2-preview</code> / SentenceTransformers <code>all-mpnet-base-v2</code></td><td>Dual-provider with runtime dimension validation</td></tr>
+<tr><td>🚀 LLM Provider</td><td>Groq Cloud (<code>qwen/qwen3.8-27b</code>), Portkey Gateway</td><td>Sub-second inference; Portkey handles routing & fallback. <code>llama-3.1-8b-instant</code> used as offline RAGAS judge only</td></tr>
+<tr><td>📊 Evaluation</td><td>RAGAS, Pandas</td><td>6-metric automated evaluation harness</td></tr>
+<tr><td>🔭 Observability</td><td>Pydantic Logfire, LangSmith</td><td>Structured traces, span-level graph inspection</td></tr>
+<tr><td>🖥️ UI</td><td>Streamlit</td><td>Chat interface (:8501) + Evaluation dashboard (:8502)</td></tr>
+<tr><td>🐳 Container</td><td>Docker</td><td>Single-container deployment manifest</td></tr>
+</table>
+
+---
+
+## 📁 Project Structure
 
 ```text
-.
-├── app/
-│   ├── main.py                   # FastAPI application entrypoint, /health & /graph endpoints
-│   ├── config.py                 # Pydantic Settings & environment variable configuration
-│   ├── agents/                   # LangGraph state machine implementation
-│   │   ├── graph.py              # StateGraph assembly, conditional edges & checkpointing
-│   │   ├── state.py              # TypedDict AgentState schema definition
-│   │   └── nodes/                # Workflow nodes: planner, retriever, responder
-│   ├── gateway/                  # LLM provider abstractions & model routing
-│   │   └── client.py             # Portkey client wrapper & direct OpenAI/Groq fallback proxy
-│   ├── guardrails/               # Two-layer safety system
-│   │   ├── rails.py              # Layer 1 regex engine, NeMo adapter & fail-open logic
-│   │   └── colang_rules.py       # Colang interaction policies & technical allowlist
-│   ├── ingestion/                # Document processing pipeline
+production-advance-rag/
+├── 📂 app/
+│   ├── main.py                   # FastAPI entrypoint — /health, /graph, /query
+│   ├── config.py                 # Pydantic Settings — env var schema & model routing
+│   ├── 📂 agents/
+│   │   ├── graph.py              # LangGraph StateGraph assembly, edges & checkpointing
+│   │   ├── state.py              # TypedDict AgentState schema
+│   │   └── 📂 nodes/            # Planner, Retriever, Responder nodes
+│   ├── 📂 gateway/
+│   │   └── client.py             # Portkey wrapper + direct Groq/OpenAI fallback
+│   ├── 📂 guardrails/
+│   │   ├── rails.py              # Regex engine, NeMo adapter & fail-open logic
+│   │   └── colang_rules.py       # Colang policies & technical keyword allowlist
+│   ├── 📂 ingestion/
 │   │   ├── processor.py          # Batch ingestion CLI, chunking & Qdrant upsert
-│   │   ├── chunking/             # Paragraph-aware text chunking
-│   │   └── loaders/              # Parsers for PDF, HTML, Office (DOCX/PPTX), and TXT
-│   └── services/                 # Vector retrieval & reranking services
-│       └── retrieval/
-│           ├── embedding.py      # Dual-provider embedding management (Gemini / Local)
-│           ├── qdrant_service.py # Qdrant search & runtime dimension validation
-│           └── ranking_service.py# FlashRank local cross-encoder service
-├── evals/                        # Automated evaluation framework
-│   ├── app.py                    # Streamlit evaluation dashboard (:8502)
+│   │   ├── 📂 chunking/         # Paragraph-aware 1500-char text splitter
+│   │   └── 📂 loaders/          # PDF, HTML, DOCX, PPTX, TXT parsers
+│   └── 📂 services/retrieval/
+│       ├── embedding.py          # Dual-provider embedding manager (Gemini / Local)
+│       ├── qdrant_service.py     # Qdrant search + dimension validation
+│       └── ranking_service.py    # FlashRank local cross-encoder service
+├── 📂 evals/
+│   ├── app.py                    # Streamlit eval dashboard (:8502)
 │   ├── pipeline.py               # Live API evaluation orchestrator
-│   ├── metrics.py                # 6 RAGAS metric implementations & runtime shims
-│   ├── guardrails_eval.py        # Binary classification harness for safety filters
-│   └── golden_dataset.json       # Ground-truth evaluation dataset (21 samples)
-├── ui/                           # User presentation layer
+│   ├── metrics.py                # 6 RAGAS metric implementations
+│   ├── guardrails_eval.py        # Binary classification harness
+│   └── golden_dataset.json       # 21-sample ground-truth evaluation dataset
+├── 📂 ui/
 │   ├── app.py                    # Primary Streamlit chat interface (:8501)
 │   └── st_cloud_ui.py            # In-process Streamlit deployment variant
 ├── .env.example                  # Environment configuration template
-├── Dockerfile                    # Containerization build manifest
-└── requirements.txt              # Production dependency specifications
+├── Dockerfile                    # Container build manifest
+└── requirements.txt              # Pinned production dependencies
 ```
 
 ---
 
-## Installation and Quick Start
+## 🚀 Quick Start
 
-### 1. Prerequisites
+### Prerequisites
 
-- Python 3.10 or higher
-- Qdrant Cloud account (or local Qdrant instance)
-- Groq Cloud API key (for fast LLM inference)
+| Requirement | Details |
+|-------------|---------|
+| 🐍 Python | 3.10 or higher |
+| 🗄️ Qdrant | Cloud account or local instance |
+| 🔑 Groq API Key | [console.groq.com](https://console.groq.com) — free tier available |
+| 🔑 Gemini API Key | Optional — only needed for `EMBEDDING_PROVIDER=gemini` |
 
-### 2. Environment Setup
-
-Clone the repository and create an isolated virtual environment:
+### Step 1 — Clone & Install
 
 ```bash
 git clone https://github.com/kingspy89/production-advance-rag.git
 cd production-advance-rag
 
 python -m venv .venv
+source .venv/bin/activate          # Linux / macOS
+# .venv\Scripts\activate           # Windows
 
-# On Linux/macOS:
-source .venv/bin/activate
-
-# On Windows:
-.venv\Scripts\activate
-```
-
-Install the project dependencies:
-
-```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment Variables
-
-Copy the template file and populate your credentials:
+### Step 2 — Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` to configure your settings:
-
 ```dotenv
-# Vector Database (Required)
-QDRANT_CLUSTER_ENDPOINT=https://your-cluster-id.us-east.aws.cloud.qdrant.io:6333
-QDRANT_API_KEY=your_qdrant_api_key_here
+# ── Vector Database (Required) ──────────────────────────────────────
+QDRANT_CLUSTER_ENDPOINT=https://your-cluster.us-east.aws.cloud.qdrant.io:6333
+QDRANT_API_KEY=your_qdrant_api_key
 
-# LLM Provider (Required)
-GROQ_API_KEY=your_groq_api_key_here
+# ── LLM Provider (Required) ─────────────────────────────────────────
+GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=qwen/qwen3.8-27b
 GUARD_MODEL=qwen/qwen3.8-27b
 
-# Embeddings: 'local' (768-dim, no API key needed) or 'gemini' (3072-dim)
+# ── Embeddings ──────────────────────────────────────────────────────
+# 'local' = 768-dim, no key needed | 'gemini' = 3072-dim, needs GEMINI_API_KEY
 EMBEDDING_PROVIDER=local
 GEMINI_API_KEY=
 
-# Observability (Optional)
+# ── Observability (Optional) ─────────────────────────────────────────
 LOGFIRE_TOKEN=
 LANGSMITH_TRACING=false
+JUDGE_GROQ=your_groq_api_key_for_eval   # separate key for RAGAS judge
 ```
 
-### 4. Ingest Enterprise Documents
-
-Index documentation into Qdrant Cloud. The `--wipe` flag creates or replaces the collection matching the active embedding model's dimensions:
+### Step 3 — Ingest Documents
 
 ```bash
-# Ingest all documents from DATA/ using configured embedding provider
+# Index all files in DATA/ into Qdrant (--wipe recreates collection)
 python -m app.ingestion.processor DATA --wipe
 ```
 
-### 5. Launch the FastAPI Backend
-
-Start the REST API server:
+### Step 4 — Launch Services
 
 ```bash
+# Terminal 1 — FastAPI backend
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
 
-- API Documentation: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- Health Check Probe: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
-- Workflow Visualizer: [http://127.0.0.1:8000/graph](http://127.0.0.1:8000/graph)
-
-### 6. Launch the Streamlit Chat Interface
-
-In a separate terminal, launch the chat interface:
-
-```bash
+# Terminal 2 — Streamlit Chat UI
 streamlit run ui/app.py --server.port 8501
-```
 
-Access the UI at [http://127.0.0.1:8501](http://127.0.0.1:8501).
-
----
-
-## Running Evaluations
-
-InfraAgent includes a three-stage automated evaluation pipeline accessible via a dedicated Streamlit dashboard:
-
-1. **Step 1 — Review Ground Truth**: Inspects the 21 test samples loaded from `evals/golden_dataset.json`.
-2. **Step 2 — Live Pipeline Execution**: Dispatches queries against the live backend (`POST /query`), capturing generated answers, retrieved contexts, and detected agent tools. Also evaluates guardrail classification (True Positive, True Negative, False Positive, False Negative).
-3. **Step 3 — RAGAS Metric Scoring**: Uses `llama-3.1-8b-instant` via Groq (configured via `JUDGE_GROQ` or `GROQ_API_KEY`) to compute Faithfulness, Answer Relevancy, Context Precision, Context Recall, Answer Correctness, and Tool Correctness.
-
-### Launching the Evaluation Dashboard
-
-Ensure the FastAPI server is running on port 8000, then execute:
-
-```bash
+# Terminal 3 (optional) — RAGAS Evaluation Dashboard
 streamlit run evals/app.py --server.port 8502
 ```
 
-Open [http://127.0.0.1:8502](http://127.0.0.1:8502) in your browser.
+| Service | URL |
+|---------|-----|
+| 🖥️ Chat Interface | http://127.0.0.1:8501 |
+| 📄 Swagger API Docs | http://127.0.0.1:8000/docs |
+| ❤️ Health Probe | http://127.0.0.1:8000/health |
+| 🔗 Graph Topology | http://127.0.0.1:8000/graph |
+| 📊 Eval Dashboard | http://127.0.0.1:8502 |
 
-### Headless Pipeline Execution
+---
 
-To run the live pipeline collector directly from the command line:
+## 🧪 Running Evaluations
+
+InfraAgent includes a **three-stage evaluation pipeline** accessible via a dedicated Streamlit dashboard:
+
+```
+Step 1 → Review Ground Truth      (21 golden samples from evals/golden_dataset.json)
+Step 2 → Live Pipeline Execution  (queries hit POST /query — captures answers, contexts, tools)
+Step 3 → RAGAS Metric Scoring     (judge LLM scores 6 metrics across 15 RAG samples)
+```
 
 ```bash
+# Ensure FastAPI backend is running on :8000, then:
+streamlit run evals/app.py --server.port 8502
+
+# Or run headless (CLI only, skips Streamlit):
 python -m evals.pipeline
 ```
 
-*Note: Judge LLM evaluations observe calibrated cooldowns (40s between samples, 62s between experiments) to stay strictly within Groq's 6,000 TPM limit on free/on-demand tiers.*
+> 💡 **Rate limit note:** Judge LLM scoring uses 40s inter-sample and 62s inter-experiment cooldowns to stay within Groq's 6,000 TPM free-tier limit.
 
 ---
 
-## Limitations and Engineering Considerations
+## ⚠️ Limitations & Engineering Considerations
 
-- **Embedding Dimension Incompatibility & Re-Indexing**: Vector models operate in fixed, distinct semantic spaces. Google Gemini embeddings generate 3,072-dimensional vectors, while local `all-mpnet-base-v2` produces 768-dimensional vectors. Distance metrics cannot be computed across vectors of differing dimensions. The application actively validates dimensions at query time (`collection_dim == query_dim`) and raises a `ValueError` if a mismatch occurs. When switching embedding providers, the collection must be fully re-indexed using `python -m app.ingestion.processor DATA --wipe`.
-- **Guardrail Failure Semantics**: Layer 1 regex filtering operates with zero latency, but cannot anticipate novel linguistic evasion. Layer 2 relies on NeMo Guardrails backed by an external LLM call. In the event of network timeouts or provider outages, the guardrail system is intentionally engineered to **fail open** for technical inputs to ensure infrastructure operators are not blocked during active operational incidents.
-- **In-Memory Agent Checkpointing**: The default LangGraph configuration utilizes `MemorySaver`, which persists conversation threads in memory. Restarting the backend server resets active session states. For production state durability across server restarts, the checkpointer can be swapped for persistent adapters such as `SqliteSaver` or `PostgresSaver`.
-- **Evaluation Dataset Scale**: The golden evaluation dataset currently consists of 21 curated scenarios. While these provide consistent regression and grounding verification during development, broader domain coverage is advisable before high-volume enterprise rollouts.
-- **External Provider Latency**: LLM generation latency is dependent on Groq API availability and network conditions. Cold-start requests may incur minor delays while local cross-encoder models are lazily loaded into memory.
+<details>
+<summary><b>🔢 Embedding Dimension Incompatibility & Re-Indexing</b></summary>
+
+Gemini embeddings are **3,072-dimensional**; local `all-mpnet-base-v2` produces **768-dimensional** vectors. These live in incompatible semantic spaces — distance metrics cannot be computed across differing dimensions. The app validates `collection_dim == query_dim` at query time and raises a `ValueError` on mismatch. Switching providers requires full re-indexing: `python -m app.ingestion.processor DATA --wipe`.
+
+</details>
+
+<details>
+<summary><b>🛡️ Guardrail Failure Semantics (Fail-Open)</b></summary>
+
+Layer 1 regex runs in-process with zero latency. Layer 2 (NeMo) makes an external LLM call. If that call times out or fails with a provider exception, the system **intentionally fails open** — it logs a warning and allows the query through to the agent. This ensures infrastructure engineers are never locked out during active incidents. The fail-open path is an exception handler, not a normal routing decision.
+
+</details>
+
+<details>
+<summary><b>💾 In-Memory Agent Checkpointing</b></summary>
+
+`MemorySaver` persists conversation threads in process memory. **Restarting the backend resets all session state.** For persistent state across restarts, swap to `SqliteSaver` or `PostgresSaver` in `app/agents/graph.py`.
+
+</details>
+
+<details>
+<summary><b>📊 Evaluation Dataset Scale</b></summary>
+
+The golden dataset contains **21 curated scenarios** (15 RAG + 6 guardrail). This is sufficient for development regression testing and grounding verification, but broader domain coverage is advisable before high-volume enterprise rollouts. RAGAS scores represent a single offline evaluation session — results are not automatically persisted to disk.
+
+</details>
+
+<details>
+<summary><b>⏱️ External Provider Latency</b></summary>
+
+LLM generation latency depends on Groq API availability and network conditions. Cold-start requests may see minor delays while the local FlashRank ONNX cross-encoder model is lazily loaded into memory on first use.
+
+</details>
 
 ---
 
-## Further Documentation
+## 📚 Further Resources
 
-- **Interactive API Documentation**: Explore and test REST endpoints interactively via Swagger UI at `/docs` when running the backend.
-- **Workflow Topology**: View the compiled LangGraph workflow dynamically rendered at `/graph`.
-- **Repository**: [https://github.com/kingspy89/production-advance-rag](https://github.com/kingspy89/production-advance-rag)
+<div align="center">
+
+| Resource | Link |
+|----------|------|
+| 📖 Interactive API Docs | `/docs` (Swagger UI, live when backend is running) |
+| 🗺️ Workflow Topology | `/graph` (compiled LangGraph state machine, rendered as image) |
+| 🦜 LangGraph Docs | [langchain-ai.github.io/langgraph](https://langchain-ai.github.io/langgraph/) |
+| 🗄️ Qdrant Docs | [qdrant.tech/documentation](https://qdrant.tech/documentation/) |
+| 🛡️ NeMo Guardrails | [github.com/NVIDIA/NeMo-Guardrails](https://github.com/NVIDIA/NeMo-Guardrails) |
+| 📊 RAGAS Docs | [docs.ragas.io](https://docs.ragas.io/) |
+| 🚀 Groq Cloud | [console.groq.com](https://console.groq.com/) |
+
+</div>
+
+---
+
+<div align="center">
+
+**Built with 🔥 by [kingspy89](https://github.com/kingspy89)**
+
+<img src="https://img.shields.io/badge/Made%20with-Python-1f425f?style=flat-square&logo=python" />
+<img src="https://img.shields.io/badge/Powered%20by-LangGraph-1C3C3C?style=flat-square&logo=langchain" />
+<img src="https://img.shields.io/badge/LLM-Groq_Cloud-F55036?style=flat-square" />
+
+*Star ⭐ the repo if you found this useful!*
+
+</div>
